@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F2F4F7; --surface: #FFFFFF; --ink: #13294B; --text: #1C2633; --muted: #5B6878;
+    --line: #D8DEE6; --todo: #E2E7EE; --done: #1F8A5B; --flag: #C8102E; --flag-bg: #FCE8EB;
+    --warn: #8A5A00; --warn-bg: #FFF3D6; --focus: #2F6FDB; --bar: #13294B; --bar-text: #FFFFFF;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0E1520; --surface: #162131; --ink: #DCE6F5; --text: #E3E9F1; --muted: #9AA8BA;
+      --line: #2A3A52; --todo: #2A3A52; --done: #3DBB80; --flag: #FF6B7F; --flag-bg: #3A1720;
+      --warn: #F2C55C; --warn-bg: #3A2E10; --bar: #0A1220; --bar-text: #DCE6F5;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { font-family: 'Barlow', system-ui, sans-serif; font-size: 16px; line-height: 1.45; color: var(--text); background: var(--bg); }
+  h1, h2, h3, .cond { font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-weight: 700; letter-spacing: .01em; margin: 0; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .muted { color: var(--muted); }
+  a { color: var(--ink); }
+
+  /* Login */
+  .login { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+  .login form { width: 100%; max-width: 360px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 28px; }
+  .login h1 { font-size: 34px; color: var(--ink); line-height: 1; }
+  .login p { margin: 6px 0 22px; }
+
+  label { display: block; font-weight: 600; font-size: 14px; margin: 14px 0 5px; }
+  input, select, textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+  textarea { min-height: 70px; resize: vertical; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 16px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-weight: 600; }
+  .btn.primary { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+  .btn.block { width: 100%; margin-top: 20px; }
+  .btn:disabled { opacity: .6; cursor: default; }
+  .err { color: var(--flag); font-size: 14px; margin-top: 12px; min-height: 1.2em; }
+
+  /* Shell */
+  header { background: var(--bar); color: var(--bar-text); padding: 12px 18px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+  header h1 { font-size: 24px; margin-right: auto; }
+  header select { width: auto; background: transparent; color: var(--bar-text); border-color: rgba(255,255,255,.35); }
+  header select option { color: #1C2633; }
+  header .who { font-size: 14px; opacity: .85; }
+  header .link { background: none; border: 0; color: var(--bar-text); text-decoration: underline; cursor: pointer; font-size: 14px; padding: 0; }
+  nav { display: flex; gap: 4px; padding: 0 18px; background: var(--surface); border-bottom: 1px solid var(--line); overflow-x: auto; }
+  nav button { background: none; border: 0; border-bottom: 3px solid transparent; padding: 12px 10px; cursor: pointer; font-weight: 600; color: var(--muted); white-space: nowrap; }
+  nav button[aria-current="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+  main { max-width: 980px; margin: 0 auto; padding: 18px; }
+
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+  .toolbar input[type=search] { flex: 1 1 220px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-size: 14px; }
+  .chip[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.fbar { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: flex-end; margin-bottom: 10px; }
+.fgroup .flbl { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+.fextra { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding-top: 10px; border-top: 1px solid var(--line); margin-bottom: 14px; }
+.fextra .fcount { margin-left: auto; font-size: 13px; color: var(--muted); }
+.roster tr.grp td { background: var(--todo); color: var(--muted); font-size: 13px; font-weight: 600; padding-top: 6px; padding-bottom: 6px; cursor: default; }
+
+  .meta { font-size: 14px; color: var(--muted); }
+  .badge { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 4px; }
+  .badge.minor { background: var(--flag-bg); color: var(--flag); }
+  .badge.missing { background: var(--warn-bg); color: var(--warn); }
+  .badge.former { background: var(--todo); color: var(--muted); }
+  .badge.servsafe { background: color-mix(in srgb, var(--done) 15%, transparent); color: var(--done); }
+  tr.company td { background: var(--todo); border-top: 2px solid var(--line); }
+
+  /* Progress bars: one segment per station */
+  .strip-head { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-bottom: 3px; }
+  .strip-head b { color: var(--text); font-weight: 600; }
+  .strip { display: flex; gap: 3px; }
+  .seg { height: 10px; background: var(--todo); position: relative; overflow: hidden; }
+  .seg i { position: absolute; inset: 0 auto 0 0; background: var(--done); }
+  .seg:first-child { border-radius: 3px 0 0 3px; } .seg:last-child { border-radius: 0 3px 3px 0; }
+  .strip-head .ready { color: var(--done); }
+  .stations { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--muted); margin-top: 4px; }
+  details.sec { border-top: 1px solid var(--line); }
+  details.sec summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; padding: 10px 8px; font-weight: 600; }
+  details.sec summary::-webkit-details-marker { display: none; }
+  details.sec summary span { font-weight: 500; color: var(--muted); font-size: 14px; }
+
+  .empty { text-align: center; padding: 40px 16px; background: var(--surface); border: 1px dashed var(--line); border-radius: 8px; }
+
+  /* Employee panel */
+  .scrim { position: fixed; inset: 0; background: rgba(10,18,32,.45); display: flex; justify-content: flex-end; z-index: 20; }
+  .panel { width: 100%; max-width: 560px; height: 100%; overflow-y: auto; background: var(--bg); box-shadow: -8px 0 24px rgba(0,0,0,.18); }
+  .panel-head { position: sticky; top: 0; z-index: 1; background: var(--surface); border-bottom: 1px solid var(--line); padding: 14px 18px; display: flex; align-items: center; gap: 10px; }
+  .panel-head h2 { font-size: 26px; color: var(--ink); margin-right: auto; line-height: 1.1; }
+  .panel-body { padding: 16px 18px 40px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin-bottom: 14px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+  @media (max-width: 480px) { .grid2 { grid-template-columns: 1fr; } }
+  details.level { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 10px; }
+  details.level summary { list-style: none; cursor: pointer; padding: 12px 16px; }
+  details.level summary::-webkit-details-marker { display: none; }
+  details.level summary h3 { font-size: 20px; color: var(--ink); }
+  .tasks { padding: 4px 8px 10px; }
+  .task { display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 14px; cursor: pointer; font-weight: 400; }
+  .task input { width: 22px; height: 22px; accent-color: var(--done); flex: none; margin: 0; }
+  .task.locked { cursor: default; color: var(--muted); }
+  .task .why { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--flag); text-align: right; }
+
+  /* Tables */
+  .table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+  table { border-collapse: collapse; width: 100%; font-size: 15px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { font-size: 13px; color: var(--muted); font-weight: 600; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: var(--bg); }
+  .attn { color: var(--flag); font-weight: 600; }
+
+  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: var(--surface); padding: 10px 16px; border-radius: 6px; z-index: 40; max-width: calc(100% - 32px); }
+  @media (prefers-reduced-motion: no-preference) { .panel { animation: slide .18s ease-out; } @keyframes slide { from { transform: translateX(24px); opacity: .6; } } }
+
+  /* Store summary */
+  .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .tile { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .tile .num { font-family: 'Barlow Condensed', sans-serif; font-size: 34px; font-weight: 700; color: var(--ink); line-height: 1; }
+  .tile .lbl { font-size: 14px; color: var(--muted); margin-top: 4px; }
+  .tile .sub { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  .path { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; }
+  .path-bar { display: flex; height: 14px; border-radius: 3px; overflow: hidden; background: var(--todo); margin: 8px 0; }
+  .path-bar span { display: block; }
+  .path-key { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 14px; }
+  .path-key i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
+  .cert { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px 16px; margin-top: 8px; }
+  .cert .row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 4px; }
+  .cert .row b { color: var(--ink); }
+  .cert .track { height: 10px; border-radius: 5px; background: var(--todo); overflow: hidden; }
+  .cert .track i { display: block; height: 100%; background: var(--done); border-radius: 5px; }
+.cert .row .step { color: var(--muted); }
+  .st-p1 { background: #A9BEDD; } .st-p3 { background: #6A8FC4; } .st-p2 { background: #2E5A99; } .st-mit { background: #C8102E; }
+  /* Roster table */
+  .roster tbody td { white-space: nowrap; }
+  .roster td.nm { font-weight: 600; color: var(--ink); white-space: normal; min-width: 150px; }
+  .roster td.prog { min-width: 200px; white-space: normal; }
+  .roster th button { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+  .roster th button[aria-sort] { color: var(--ink); }
+  .locknote { font-size: 13px; color: var(--muted); padding: 4px 14px 10px; }
+  /* Timeline and weekly bars */
+  .tl-body { padding: 4px 16px 14px; }
+  .tl { list-style: none; margin: 4px 0 16px 6px; padding: 0 0 0 16px; border-left: 2px solid var(--line); }
+  .tl li { position: relative; padding: 2px 0 12px; }
+  .tl li::before { content: ''; position: absolute; left: -23px; top: 7px; width: 12px; height: 12px; border-radius: 50%; background: var(--line); }
+  .tl li.done::before { background: var(--done); }
+  .tl li.started::before { background: var(--ink); }
+  .tl .what { font-weight: 600; }
+  .tl .when { font-size: 14px; color: var(--muted); }
+  .bars { display: flex; align-items: flex-end; gap: 3px; height: 56px; }
+  .bars span { flex: 1; height: 100%; display: flex; align-items: flex-end; background: var(--todo); border-radius: 2px; }
+  .bars i { display: block; width: 100%; background: var(--ink); border-radius: 2px; }
+  .bars.sm { height: 30px; min-width: 180px; }
+  .bars-axis { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .card h3 { font-size: 21px; color: var(--ink); }
+  .card > p.muted { margin: 2px 0 12px; font-size: 14px; }
+  table.static tbody tr { cursor: default; }
+  table.static tbody tr:hover { background: none; }
+  td.num, th.num { text-align: right; }
+  /* Position Observation Forms */
+  .pof-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .pof-head h3 { font-size: 21px; color: var(--ink); margin-right: auto; }
+  .pcards { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+  .pc { text-align: left; border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: var(--surface); cursor: pointer; }
+  .pc:hover { border-color: var(--muted); }
+  .pc[aria-pressed="true"] { outline: 3px solid var(--focus); outline-offset: -1px; }
+  .pc:disabled { cursor: default; opacity: .6; }
+  .pc .l { font-weight: 600; }
+  .pc .n { font-family: 'Barlow Condensed', sans-serif; font-size: 30px; font-weight: 700; color: var(--ink); line-height: 1.1; }
+  .pc .s { font-size: 12px; color: var(--muted); }
+  .pc .ok { color: var(--done); font-weight: 600; }
+  .pof-detail { margin-top: 12px; }
+  .hist { width: 100%; text-align: left; display: flex; justify-content: space-between; gap: 10px; align-items: center; background: none; border: 0; border-top: 1px solid var(--line); padding: 9px 2px; cursor: pointer; }
+  .hist .tag { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
+  .tag.pass { background: color-mix(in srgb, var(--done) 15%, transparent); color: var(--done); }
+  .tag.fail { background: var(--warn-bg); color: var(--warn); }
+  .hist-body { padding: 4px 4px 12px; font-size: 14px; }
+  .pof-sec { font-weight: 600; margin: 14px 0 2px; }
+  .pof-item { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); font-size: 15px; }
+  .pof-item span { flex: 1; }
+  .yn { display: flex; gap: 4px; flex: none; }
+  .yn button { padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-weight: 600; }
+  .yn button.y[aria-pressed="true"] { background: var(--done); border-color: var(--done); color: #fff; }
+  .yn button.n[aria-pressed="true"] { background: var(--flag); border-color: var(--flag); color: #fff; }
+  /* Explanation pop-ups */
+  .tip { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; margin-left: 5px; padding: 0;
+    border-radius: 50%; border: 1px solid var(--muted); background: var(--surface); color: var(--muted); font-size: 11px; font-weight: 700;
+    cursor: help; vertical-align: 1px; line-height: 1; }
+  .tip:hover, .tip:focus-visible, .tip[aria-expanded="true"] { border-color: var(--ink); color: var(--ink); }
+  #tipBox { position: fixed; z-index: 50; max-width: 280px; background: var(--ink); color: var(--surface); font-size: 14px; font-weight: 400;
+    line-height: 1.4; padding: 10px 12px; border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,.2); text-align: left; white-space: normal; }
+  .up { color: var(--done); font-weight: 600; } .down { color: var(--flag); font-weight: 600; }
+  .big { font-family: 'Barlow Condensed', sans-serif; font-size: 36px; font-weight: 700; line-height: 1; color: var(--ink); }
+  /* Check-all buttons */
+  .bulk { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 8px 6px; }
+  .btn.sm { padding: 5px 10px; font-size: 13px; }
+  .btn.armed { background: var(--flag); border-color: var(--flag); color: #fff; }
+  /* Scorecard */
+  .sc { display: inline-block; min-width: 46px; text-align: center; font-weight: 700; padding: 3px 8px; border-radius: 6px; }
+  .sc.g { background: color-mix(in srgb, var(--done) 16%, transparent); color: var(--done); }
+  .sc.y { background: var(--warn-bg); color: var(--warn); }
+  .sc.r { background: var(--flag-bg); color: var(--flag); }
+  .sc.n { background: var(--todo); color: var(--muted); font-weight: 600; }
+  .small { display: block; font-size: 12px; color: var(--muted); font-weight: 400; }
+  .pill { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 4px; margin-left: 6px; background: color-mix(in srgb, var(--done) 16%, transparent); color: var(--done); }
+  .how { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 14px; }
+  .how div { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 14px; }
+  .how b { display: block; margin-bottom: 2px; }
+  .pof-score { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 700; color: var(--ink); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast" class="toast" role="status" hidden></div>
+<div id="tipBox" role="tooltip" hidden></div>
+<script>
+const MIT_STATES = [['', 'Not enrolled'], ['Enrolled', 'Enrolled'], ['Graduated', 'Graduated']];
+const STAGES = [['Phase 1', 'st-p1'], ['Phase 3', 'st-p3'], ['Phase 2', 'st-p2'], ['MIT', 'st-mit']];
+const CERT_ORDER = ['Phase 1', 'Phase 3', 'Phase 2'];
+const S = { token: null, data: null, store: null, roster: null, view: 'roster', filter: 'active', pos: 'all', stage: 'any', status: 'both', minor: false, former: false, emp: 'Active', servsafe: 'any', q: '', sort: 'roster', open: null };
+const app = document.getElementById('app');
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const isOff = st => st === 'Inactive' || st === 'Former';
+const norm = s => String(s == null ? '' : s).replace(/\s+/g, ' ').trim().toLowerCase();
+const key = (l, sec, t) => norm(l) + '::' + norm(sec) + '::' + norm(t);
+const isLead = () => S.data && S.data.user.role !== 'manager';
+const save = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} };
+const read = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+
+function call(fn, ...args) {
+  return new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn](...args));
+}
+function msg(e) { return String((e && e.message) || e).replace(/^(Error|Exception):\s*/, ''); }
+function fail(e) {
+  const m = msg(e);
+  if (m.indexOf('SESSION_EXPIRED') > -1) return signOut('Your session ended. Sign in again.');
+  toast(m);
+}
+let toastTimer;
+function toast(text) {
+  const t = document.getElementById('toast');
+  t.textContent = text; t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 3500);
+}
+
+/* ---------- Dates (age is recalculated from date of birth every time the app loads) ---------- */
+function parse(s) { if (!s) return null; const p = s.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); }
+function age(dob) {
+  const b = parse(dob), t = parse(S.data.today); if (!b) return null;
+  let a = t.getFullYear() - b.getFullYear(); const m = t.getMonth() - b.getMonth();
+  if (m < 0 || (m === 0 && t.getDate() < b.getDate())) a--;
+  return a;
+}
+const DAY = 864e5;
+
+/* ---------- POF helpers ---------- */
+function pofsOf(e) { return (S.roster.pofs && S.roster.pofs[e.id]) || []; }
+function pofForms(minor) { return S.data.pof.forms.filter(f => !(minor && S.data.pof.restricted.indexOf(f.position) > -1)); }
+function pofInfo(e, position) {
+  const list = pofsOf(e).filter(f => f.position === position).sort((a, b) => a.date.localeCompare(b.date));
+  const pass = S.data.pof.pass;
+  const firstPass = list.find(f => f.score >= pass);
+  const last = list[list.length - 1];
+  return { list, count: list.length, passedOn: firstPass ? firstPass.date : null,
+    triesToPass: firstPass ? list.indexOf(firstPass) + 1 : null, last, latestBelow: !!(firstPass && last && last.score < pass) };
+}
+function pofPassed(e, minor) {
+  const forms = pofForms(minor);
+  return { passed: forms.filter(f => pofInfo(e, f.position).passedOn).length, total: forms.length };
+}
+function fmtShort(d) { return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
+function fmtLong(d) { return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+function weekStart(d) { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; }
+function lastWeeks(n) { const end = weekStart(new Date()), out = []; for (let i = n - 1; i >= 0; i--) { const d = new Date(end); d.setDate(d.getDate() - 7 * i); out.push(d); } return out; }
+function bars(counts, weeks, max, small) {
+  max = max || Math.max(1, ...counts);
+  return `<div class="bars ${small ? 'sm' : ''}" role="img" aria-label="Items signed off per week">${counts.map((c, i) =>
+    `<span title="Week of ${fmtShort(weeks[i])}: ${c} item${c === 1 ? '' : 's'}"><i style="height:${Math.round(100 * c / max)}%"></i></span>`).join('')}</div>
+    ${small ? '' : `<div class="bars-axis"><span>Week of ${fmtShort(weeks[0])}</span><span>This week</span></div>`}`;
+}
+function daysHere(start) { const d = parse(start); return d ? Math.round((parse(S.data.today) - d) / 864e5) : null; }
+function fmt(s) { const d = parse(s); return d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''; }
+function tenure(days) {
+  if (days === null) return '';
+  if (days < 0) return 'Starts soon';
+  if (days < 60) return days + (days === 1 ? ' day' : ' days');
+  const mo = Math.floor(days / 30.44);
+  if (mo < 24) return mo + ' months';
+  const y = Math.floor(mo / 12), r = mo % 12;
+  return y + ' yrs' + (r ? ' ' + r + ' mo' : '');
+}
+
+/* ---------- Employee math ---------- */
+function stats(e) {
+  const p = (S.roster.progress[e.id]) || {};
+  const a = age(e.dob), minor = a !== null && a < 18;
+  const levels = S.data.levels.filter(l => l.name !== 'MIT' || e.mit).map(l => {
+    const tasks = l.tasks.filter(t => !(t.restricted && minor));
+    const sections = [];
+    tasks.forEach(t => {
+      let sec = sections.find(x => x.name === t.section);
+      if (!sec) sections.push(sec = { name: t.section, total: 0, done: 0 });
+      sec.total++; if (p[key(l.name, t.section, t.name)]) sec.done++;
+    });
+    const done = sections.reduce((x, y) => x + y.done, 0);
+    return { name: l.name, total: tasks.length, done, pct: tasks.length ? Math.round(100 * done / tasks.length) : 100, sections };
+  });
+  const lv = n => levels.find(l => l.name === n);
+  let stage;
+  if (e.mit === 'Enrolled' || e.mit === 'Graduated') stage = 'MIT';
+  else stage = (CERT_ORDER.map(lv).find(l => l && l.done < l.total) || { name: CERT_ORDER[CERT_ORDER.length - 1] }).name;
+    // Finishing Phase 1 doesn't put someone into Phase 3: they start once a Phase 3 box is checked (shift leaders always do).
+    if (stage === 'Phase 3' && e.position !== 'Shift Leader' && !(lv('Phase 3') && lv('Phase 3').done > 0)) stage = 'Phase 1';
+  const current = lv(stage);
+  return { age: a, minor, levels, stage, current, days: daysHere(e.start) };
+}
+
+/* ---------- Login ---------- */
+function renderLogin(note) {
+  app.innerHTML = `
+    <div class="login"><form id="loginForm" novalidate>
+      <h1>Legend Subs Training</h1>
+      <p class="muted">Sign in with your email and PIN.</p>
+      <label for="em">Email</label>
+      <input id="em" type="email" autocomplete="username" required value="${esc(read('lst_email') || '')}">
+      <label for="pin">PIN</label>
+      <input id="pin" type="password" inputmode="numeric" autocomplete="current-password" required>
+      <button class="btn primary block" id="go">Sign in</button>
+      <div class="err" id="err">${esc(note || '')}</div>
+    </form></div>`;
+  const f = document.getElementById('loginForm');
+  (read('lst_email') ? f.pin : f.em).focus();
+  f.addEventListener('submit', async ev => {
+    ev.preventDefault();
+    const btn = document.getElementById('go'), err = document.getElementById('err');
+    if (!f.em.value || !f.pin.value) { err.textContent = 'Enter your email and PIN.'; return; }
+    btn.disabled = true; btn.textContent = 'Signing in…'; err.textContent = '';
+    try {
+      const r = await call('login', f.em.value, f.pin.value);
+      S.token = r.token; save('lst_token', r.token); save('lst_email', f.em.value.trim());
+      start(r.data);
+    } catch (e) { err.textContent = msg(e); btn.disabled = false; btn.textContent = 'Sign in'; }
+  });
+}
+
+async function signOut(note) {
+  if (S.token) call('logout', S.token).catch(() => {});
+  S.token = null; save('lst_token', null);
+  renderLogin(note);
+}
+
+/* ---------- Shell ---------- */
+function start(data) {
+  S.data = data;
+  const saved = read('lst_store');
+  S.store = data.stores.some(s => s.id === saved) ? saved : (data.stores[0] && data.stores[0].id);
+  S.view = 'roster';
+  if (!S.store) { app.innerHTML = '<main><div class="empty">No stores are assigned to your login yet. Ask an admin to add them on the Users tab.</div></main>'; return; }
+  renderShell(); loadRoster();
+}
+
+function renderShell() {
+  const d = S.data;
+  const storeLabel = s => `${s.name} #${s.id}`;
+  app.innerHTML = `
+    <header>
+      <h1>Legend Subs Training</h1>
+      ${d.stores.length > 1
+        ? `<select id="storeSel" aria-label="Store">${d.stores.map(s => `<option value="${s.id}" ${s.id === S.store ? 'selected' : ''}>${esc(storeLabel(s))}</option>`).join('')}</select>`
+        : `<span class="cond" style="font-size:20px">${esc(storeLabel(d.stores[0]))}</span>`}
+      <span class="who">${esc(d.user.name)}</span>
+      <button class="link" id="out">Sign out</button>
+    </header>
+    <nav>
+      <button data-view="roster" aria-current="${S.view === 'roster'}">Store roster</button>
+      <button data-view="trends" aria-current="${S.view === 'trends'}">Trends</button>
+      <button data-view="scorecard" aria-current="${S.view === 'scorecard'}">Scorecard</button>
+    <button data-view="plan" aria-current="${S.view === 'plan'}">Weekly plan</button>
+      ${isLead() ? `<button data-view="overview" aria-current="${S.view === 'overview'}">All stores</button>` : ''}
+      ${S.data.user.role === 'admin' ? `<button data-view="activity" aria-current="${S.view === 'activity'}">Activity</button>` : ''}
+    </nav>
+    <main id="main"></main>
+    <div id="panelRoot"></div>`;
+  document.getElementById('out').onclick = () => signOut();
+  const sel = document.getElementById('storeSel');
+  if (sel) sel.onchange = () => { S.store = sel.value; save('lst_store', S.store); setView('roster'); };
+  document.querySelectorAll('nav button').forEach(b => b.onclick = () => setView(b.dataset.view));
+}
+
+function setView(v) {
+  S.view = v;
+  document.querySelectorAll('nav button').forEach(b => b.setAttribute('aria-current', b.dataset.view === v));
+  if (v === 'roster') loadRoster(); else if (v === 'trends') loadTrends(); else if (v === 'scorecard') loadScorecard(); else if (v === 'activity') loadActivity(); else if (v === 'plan') WeeklyPlan.mount(document.getElementById('main'), S.token, S.store); else loadOverview();
+}
+
+/* ---------- Roster ---------- */
+async function loadRoster() {
+  const main = document.getElementById('main');
+  main.innerHTML = '<p class="muted">Loading roster…</p>';
+  try { S.roster = await call('getRoster', S.token, S.store); renderRoster(); }
+  catch (e) { fail(e); main.innerHTML = '<div class="empty">The roster didn\'t load. Check your connection and refresh.</div>'; }
+}
+
+const POS_FILTERS = [['all', 'Everyone'], ['Shift Leader', 'Shift leaders'], ['Crew Member', 'Crew members']];
+const STATUS_FILTERS = [['both', 'Both'], ['w', 'Working on'], ['c', 'Certified']];
+const SERVSAFE_FILTERS = [['any', 'Any'], ['yes', 'Certified'], ['no', 'Not certified']];
+const SORTS = { name: 'Name', position: 'Position', age: 'Age', start: 'Start date', stage: 'Training' };
+
+function renderRoster() {
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <div id="summary"></div>
+    <div class="toolbar">
+      <input type="search" id="q" placeholder="Search by name" value="${esc(S.q)}" aria-label="Search employees">
+      <button class="btn primary" id="add">Add employee</button>
+    </div>
+    <div class="fbar">
+      <div class="fgroup"><span class="flbl">Position</span><div class="chips">${POS_FILTERS.map(([k, l]) => `<button class="chip" data-g="pos" data-f="${k}" aria-pressed="${S.pos === k}">${l}</button>`).join('')}</div></div>
+      <div class="fgroup"><span class="flbl">Training stage</span><div class="chips">${[['any', 'Any']].concat(STAGES.map(([k]) => [k, k])).map(([k, l]) => `<button class="chip" data-g="stage" data-f="${k}" aria-pressed="${S.stage === k}">${l}</button>`).join('')}</div></div>
+      <div class="fgroup" id="statusGroup"${S.stage === 'any' ? ' hidden' : ''}><span class="flbl">Status</span><div class="chips">${STATUS_FILTERS.map(([k, l]) => `<button class="chip" data-g="status" data-f="${k}" aria-pressed="${S.status === k}">${l}</button>`).join('')}</div></div>
+      <div class="fgroup"><span class="flbl">ServSafe</span><div class="chips">${SERVSAFE_FILTERS.map(([k, l]) => `<button class="chip" data-g="servsafe" data-f="${k}" aria-pressed="${S.servsafe === k}">${l}</button>`).join('')}</div></div>
+    </div>
+    <div class="fextra"><button class="chip" data-t="minor" aria-pressed="${S.minor}">Under 18</button><span class="flbl" style="display:inline;margin:0 4px 0 10px;font-size:12px;color:var(--muted)">Employee status</span>${[['Active', 'Active'], ['Inactive', 'Inactive'], ['Former', 'Former']].map(([k, l]) => `<button class="chip" data-g="emp" data-f="${k}" aria-pressed="${S.emp === k}">${l}</button>`).join('')}<span class="fcount" id="fcount"></span></div>
+    <div id="list"></div>`;
+  document.getElementById('q').oninput = e => { S.q = e.target.value; renderList(); };
+  document.getElementById('add').onclick = () => openPanel('new');
+  main.querySelectorAll('.chip[data-g]').forEach(c => c.onclick = () => {
+    S[c.dataset.g] = c.dataset.f;
+    if (S.stage === 'any') S.status = 'both';
+    main.querySelectorAll('.chip[data-g]').forEach(x => x.setAttribute('aria-pressed', S[x.dataset.g] === x.dataset.f));
+    document.getElementById('statusGroup').hidden = S.stage === 'any';
+    renderList();
+  });
+  main.querySelectorAll('.chip[data-t]').forEach(c => c.onclick = () => {
+    S[c.dataset.t] = !S[c.dataset.t]; c.setAttribute('aria-pressed', S[c.dataset.t]); renderList();
+  });
+  renderSummary(); renderList();
+}
+
+function renderSummary() {
+  const el = document.getElementById('summary'); if (!el) return;
+  const staff = S.roster.employees.filter(e => !isOff(e.status)).map(e => ({ e, s: stats(e) }));
+  const n = staff.length;
+  const cnt = f => staff.filter(f).length;
+  const known = staff.filter(x => x.s.days !== null && x.s.days >= 0);
+  const avg = known.length ? Math.round(known.reduce((a, x) => a + x.s.days, 0) / known.length) : null;
+  const minors = cnt(x => x.s.minor), u16 = cnt(x => x.s.age !== null && x.s.age < 16);
+  const noDob = cnt(x => x.s.age === null);
+    const certRows = STAGES.map(([name], i) => ({ name, step: i + 1, c: cnt(x => name === 'MIT' ? x.s.stage === 'MIT' : certified(x.s, name)) }));
+  el.innerHTML = `
+    <div class="summary">
+      <div class="tile"><div class="num">${n}</div><div class="lbl">On the roster</div>
+        <div class="sub">${S.data.positions.map(p => cnt(x => x.e.position === p) + ' ' + p.toLowerCase() + (cnt(x => x.e.position === p) === 1 ? '' : 's')).join(', ')}</div></div>
+      <div class="tile"><div class="num">${minors}</div><div class="lbl">Under 18</div>
+        <div class="sub">${u16} under 16, ${cnt(x => x.s.age >= 18)} adults${noDob ? `, ${noDob} with no date of birth` : ''}</div></div>
+      <div class="tile"><div class="num">${avg === null ? '–' : esc(tenure(avg))}</div><div class="lbl">Average time here</div>
+        <div class="sub">${cnt(x => x.s.days !== null && x.s.days < 90)} under 90 days, ${cnt(x => x.s.days >= 365)} over a year</div></div>
+    </div>
+    ${n ? `<div class="path"><div class="cond" style="font-size:19px;color:var(--ink)">Training completed ${tip('How many people on the roster have finished each phase, in training order. Someone who finished Phase 3 also counts toward Phase 1. Under-18s count once everything they\'re allowed to do is checked off.')}</div>
+      <div class="cert">${certRows.map(x => `<div><div class="row"><span>${x.name === 'MIT' ? 'In MIT' : esc(x.name) + ' certified'}</span><b>${x.c}</b></div><div class="track" aria-hidden="true"><i style="width:${Math.round(100 * x.c / n)}%"></i></div></div>`).join('')}</div></div>` : ''}`;
+}
+
+// Has this person checked off every item in a phase? (Under-18s count once everything they're allowed to do is done.)
+function certified(s, name) { const l = s.levels.find(x => x.name === name); return !!(l && l.total > 0 && l.done === l.total); }
+function isDone(e, s, name) { return name === 'MIT' ? e.mit === 'Graduated' : certified(s, name); }
+function isWorking(e, s, name) { return s.stage === name && !isDone(e, s, name); }
+function posRank(e) { return e.position === 'Shift Leader' ? 0 : e.position === 'Crew Member' ? 1 : 2; }
+function grpRow(rows, i) {
+  if (S.sort !== 'roster') return '';
+  const g = r => isOff(r.e.status) ? r.e.status : r.e.position === 'Shift Leader' ? 'Shift leaders' : r.e.position === 'Crew Member' ? 'Crew members' : 'Other';
+  if (i > 0 && g(rows[i - 1]) === g(rows[i])) return '';
+  const k = g(rows[i]);
+  return `<tr class="grp"><td colspan="7">${k} · ${rows.filter(r => g(r) === k).length}</td></tr>`;
+}
+
+function stageRank(st) { return STAGES.findIndex(x => x[0] === st.stage) * 1000 + (st.current ? st.current.pct : 0); }
+
+function renderList() {
+  const list = document.getElementById('list'); if (!list) return;
+  const q = norm(S.q);
+  const rows = S.roster.employees.map(e => ({ e, s: stats(e) })).filter(({ e, s }) => {
+    if (q && norm(e.name).indexOf(q) === -1) return false;
+    const former = isOff(e.status);
+    if ((isOff(e.status) ? e.status : 'Active') !== S.emp) return false;
+    if (S.pos !== 'all' && e.position !== S.pos) return false;
+    if (S.minor && !s.minor) return false;
+    if (S.servsafe !== 'any' && certified(s, 'ServSafe') !== (S.servsafe === 'yes')) return false;
+    if (S.stage !== 'any') {
+      if (S.status === 'c') return isDone(e, s, S.stage);
+      if (S.status === 'w') return isWorking(e, s, S.stage);
+      return isDone(e, s, S.stage) || isWorking(e, s, S.stage);
+    }
+    return true;
+  });
+  const by = {
+    roster: (a, b) => posRank(a.e) - posRank(b.e) || stageRank(b.s) - stageRank(a.s) || by.name(a, b),
+    name: (a, b) => a.e.name.localeCompare(b.e.name),
+    position: (a, b) => posRank(a.e) - posRank(b.e) || by.name(a, b),
+    age: (a, b) => (a.s.age === null ? 999 : a.s.age) - (b.s.age === null ? 999 : b.s.age) || by.name(a, b),
+    start: (a, b) => (a.e.start || '9999').localeCompare(b.e.start || '9999') || by.name(a, b),
+    stage: (a, b) => stageRank(a.s) - stageRank(b.s) || by.name(a, b)
+  };
+  rows.sort(by[S.sort]);
+  const fc = document.getElementById('fcount'); if (fc) fc.textContent = rows.length + (rows.length === 1 ? ' person' : ' people');
+
+  if (!rows.length) {
+    const none = S.roster.employees.length === 0;
+    list.innerHTML = `<div class="empty">${none ? 'No one is on this roster yet. Add your first employee to start tracking.' : 'No employees match this view.'}</div>`;
+    return;
+  }
+  const head = Object.keys(SORTS).map(k => `<th><button data-sort="${k}" ${S.sort === k ? 'aria-sort="ascending"' : ''}>${SORTS[k]}${S.sort === k ? ' ▲' : ''}</button></th>`);
+  head.splice(4, 0, '<th>Time here</th>', '<th>POFs passed</th>');
+  list.innerHTML = `<div class="table-wrap"><table class="roster">
+    <thead><tr>${head.join('')}</tr></thead>
+    <tbody>${rows.map(({ e, s }, i) => {
+      const cur = s.current;
+      const allDone = e.mit === 'Graduated' || certified(s, 'MIT') || ['Phase 1', 'Phase 3', 'Phase 2'].every(n => certified(s, n));
+      const label = allDone ? '<div><div class="strip-head"><span>All sections complete</span><b class="ready">100% Complete</b></div><div class="strip" aria-hidden="true"><span class="seg" style="flex:1"><i style="width:100%"></i></span></div></div>' : cur ? strip(cur, false) : '';
+      return grpRow(rows, i) + `<tr data-id="${esc(e.id)}" tabindex="0">
+        <td class="nm">${esc(e.name)}${certified(s, 'ServSafe') ? ' <span class="badge servsafe">ServSafe</span>' : ''} ${s.minor ? '<span class="badge minor">Under 18</span>' : ''}${!e.dob || !e.start ? ' <span class="badge missing">Missing info</span>' : ''}${isOff(e.status) ? ' <span class="badge former">' + esc(e.status) + '</span>' : ''}</td>
+        <td>${esc(e.position)}</td>
+        <td>${s.age === null ? '<span class="muted">–</span>' : s.age}</td>
+        <td>${e.start ? esc(fmt(e.start)) : '<span class="muted">–</span>'}</td>
+        <td>${esc(tenure(s.days)) || '<span class="muted">–</span>'}</td>
+        <td>${(pp => `${pp.passed} of ${pp.total}`)(pofPassed(e, s.minor))}</td>
+        <td class="prog">${label}</td></tr>`;
+    }).join('')}</tbody></table></div>`;
+  list.querySelectorAll('tbody tr[data-id]').forEach(r => {
+    r.onclick = () => openPanel(r.dataset.id);
+    r.onkeydown = ev => { if (ev.key === 'Enter') openPanel(r.dataset.id); };
+  });
+  list.querySelectorAll('th button').forEach(b => b.onclick = () => { S.sort = b.dataset.sort; renderList(); });
+}
+
+function strip(l, showStations, nameOverride) {
+  const label = l.done === l.total ? '<b class="ready">100% Complete</b>' : `<b>${l.pct}%</b>`;
+  return `<div><div class="strip-head"><span>${esc(nameOverride || l.name)}</span>${label}</div>
+    <div class="strip" aria-hidden="true"><span class="seg" style="flex:1"><i style="width:${l.total ? Math.round(100 * l.done / l.total) : 100}%"></i></span></div>
+    ${showStations ? `<div class="stations">${l.sections.map(x => `<span>${esc(x.name.replace(/ – .*/, ''))} ${x.done}/${x.total}</span>`).join('')}</div>` : ''}</div>`;
+}
+
+/* ---------- Employee panel ---------- */
+function openPanel(id) {
+  S.open = id; S.pofSel = null; S.pofForm = null; S.pofOpen = null;
+  const isNew = id === 'new';
+  const e = isNew ? { name: '', dob: '', start: S.data.today, position: S.data.positions[0], status: 'Active', mit: '', notes: '' } : S.roster.employees.find(x => x.id === id);
+  if (!e) return;
+  const root = document.getElementById('panelRoot');
+  const posOptions = S.data.positions.indexOf(e.position) === -1 && e.position ? S.data.positions.concat(e.position) : S.data.positions;
+  const s = isNew ? null : stats(e);
+  const facts = s ? [s.age !== null ? 'Age ' + s.age : 'No date of birth', e.start ? 'here ' + tenure(s.days) : 'no start date', s.stage].join(', ') : '';
+  root.innerHTML = `
+    <div class="scrim" id="scrim"><div class="panel" role="dialog" aria-modal="true" aria-labelledby="pTitle">
+      <div class="panel-head"><div style="margin-right:auto"><h2 id="pTitle">${isNew ? 'Add employee' : esc(e.name)}</h2>
+        ${facts ? `<div class="meta">${esc(facts.charAt(0).toUpperCase() + facts.slice(1))}</div>` : ''}</div>
+        <button class="btn" id="close">Close</button></div>
+      <div class="panel-body">
+        <form class="card" id="empForm" novalidate>
+          <label for="f_name">Name</label><input id="f_name" value="${esc(e.name)}" autocomplete="off">
+          <div class="grid2">
+            <div><label for="f_dob">Date of birth</label><input id="f_dob" type="date" value="${esc(e.dob)}" max="${S.data.today}"></div>
+            <div><label for="f_start">Start date</label><input id="f_start" type="date" value="${esc(e.start)}"></div>
+            <div><label for="f_pos">Position</label><select id="f_pos">${posOptions.map(p => `<option ${p === e.position ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></div>
+            <div><label for="f_status">Status</label><select id="f_status">
+              ${['Active', 'Inactive', 'Former'].map(o => `<option value="${o}" ${(e.status || 'Active') === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div>
+            <div><label for="f_mit">Manager in Training program</label><select id="f_mit">
+              ${MIT_STATES.map(([v, l]) => `<option value="${v}" ${(e.mit || '') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+          </div>
+          <label for="f_notes">Notes</label><textarea id="f_notes">${esc(e.notes)}</textarea>
+          <button class="btn primary block" id="saveBtn">${isNew ? 'Add employee' : 'Save details'}</button>
+        </form>
+        ${!isNew && isLead() && S.data.stores.length > 1 ? transferHtml(e) : ''}
+        ${isNew ? '' : '<section class="card" id="pofs"></section>'}
+        <div id="levels">${isNew ? '<p class="muted">Add the employee first, then check off training here.</p>' : levelsHtml(e)}</div>
+      </div>
+    </div></div>`;
+  const close = () => { root.innerHTML = ''; S.open = null; };
+  document.getElementById('close').onclick = close;
+  document.getElementById('scrim').onclick = ev => { if (ev.target.id === 'scrim') close(); };
+  document.getElementById('f_name').focus();
+  document.getElementById('empForm').onsubmit = ev => { ev.preventDefault(); saveEmp(isNew ? null : e.id); };
+  if (!isNew) { bindTasks(e); renderPofs(e); bindPofs(e); bindTransfer(e); }
+}
+
+/* ---------- Transfer to another store (admins and DMs; DMs only see their own stores) ---------- */
+function transferHtml(e) {
+  const others = S.data.stores.filter(s => s.id !== e.store);
+  return `<section class="card" id="transfer">
+    <h3>Transfer to another store</h3>
+    <p class="muted" style="margin:2px 0 8px;font-size:14px">Their training, POFs, and timeline move with them. A note is added with the date and who made the transfer.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <select id="tr_to" aria-label="Store to transfer to" style="flex:1 1 220px">
+        <option value="">Choose a store…</option>
+        ${others.map(s => `<option value="${esc(s.id)}">${esc(s.name)} #${esc(s.id)}</option>`).join('')}
+      </select>
+      <button type="button" class="btn" id="tr_go" disabled>Transfer</button>
+    </div></section>`;
+}
+function bindTransfer(e) {
+  const sel = document.getElementById('tr_to'), b = document.getElementById('tr_go');
+  if (!sel || !b) return;
+  const reset = () => { b.dataset.armed = ''; b.classList.remove('armed'); b.textContent = 'Transfer'; };
+  sel.onchange = () => { b.disabled = !sel.value; reset(); };
+  b.onclick = async () => {
+    if (!sel.value) return;
+    const to = S.data.stores.find(s => s.id === sel.value);
+    if (b.dataset.armed !== '1') {
+      b.dataset.armed = '1'; b.classList.add('armed'); b.textContent = `Tap again to move to ${to.name}`;
+      setTimeout(() => { if (b.isConnected && b.dataset.armed === '1') reset(); }, 4000);
+      return;
+    }
+    b.disabled = true; b.textContent = 'Transferring…';
+    try {
+      const r = await call('transferEmployee', S.token, e.id, sel.value);
+      document.getElementById('panelRoot').innerHTML = ''; S.open = null;
+      toast(`${r.name} moved to ${r.toName}.`);
+      loadRoster();
+    } catch (err) { fail(err); b.disabled = false; reset(); }
+  };
+}
+
+function levelsHtml(e) {
+  const s = stats(e), p = S.roster.progress[e.id] || {};
+  const dobMissing = !e.dob;
+  const note = !e.mit ? '<p class="muted" style="font-size:14px">The Manager in Training checklist appears here once this person is enrolled. Set "Manager in Training program" to Enrolled and save.</p>' : '';
+  return timelineHtml(e, s) + S.data.levels.filter(l => l.name !== 'MIT' || e.mit).map(l => {
+    const sl = s.levels.find(x => x.name === l.name);
+    const open = l.name === s.stage;
+    const sequential = (S.data.sequential || []).indexOf(l.name) > -1;
+    const groups = [];
+    l.tasks.forEach(t => { let g = groups.find(x => x.name === t.section); if (!g) groups.push(g = { name: t.section, tasks: [] }); g.tasks.push(t); });
+    let blockedBy = null;
+    return `<details class="level" ${open ? 'open' : ''} data-level="${esc(l.name)}">
+      <summary><h3>${esc(l.name === 'MIT' ? 'Manager in Training' : l.name)}</h3>${strip(sl, true)}</summary>
+      <div class="tasks">${bulkBar(l.name, '', sl.done, sl.total, 'all of ' + (l.name === 'MIT' ? 'MIT' : l.name))}${groups.map(g => {
+        const counted = g.tasks.filter(t => !(t.restricted && s.minor));
+        const done = counted.filter(t => p[key(l.name, t.section, t.name)]).length;
+        const locked = sequential && blockedBy;
+        const html = `<details class="sec" data-sec="${esc(g.name)}">
+          <summary>${esc(g.name)}<span>${locked ? 'Locked' : counted.length ? done + ' of ' + counted.length : 'Not allowed under 18'}</span></summary>
+          ${locked ? `<div class="locknote">Finish ${esc(blockedBy)} first.</div>` : bulkBar(l.name, g.name, done, counted.length, 'all ' + g.name)}
+          ${g.tasks.map(t => {
+            const checked = !!p[key(l.name, t.section, t.name)];
+            const blocked = (t.restricted && (s.minor || dobMissing) && !checked) || (locked && !checked);
+            const why = t.restricted && s.minor ? 'Not allowed under 18' : (t.restricted && dobMissing ? 'Add date of birth first' : '');
+            return `<label class="task ${blocked ? 'locked' : ''}">
+              <input type="checkbox" data-level="${esc(l.name)}" data-section="${esc(t.section)}" data-task="${esc(t.name)}" ${checked ? 'checked' : ''} ${blocked ? 'disabled' : ''}>
+              <span>${esc(t.name)}</span>${why ? `<span class="why">${why}</span>` : ''}</label>`;
+          }).join('')}</details>`;
+        if (sequential && !blockedBy && done < counted.length) blockedBy = g.name;
+        return html;
+      }).join('')}</div></details>`;
+  }).join('') + note;
+}
+
+// Per-employee timeline: milestones plus items signed off per week.
+function timelineHtml(e, s) {
+  const p = S.roster.progress[e.id] || {};
+  const dateOf = k => { const v = p[k]; const d = v && v.length > 5 ? new Date(v) : null; return d && !isNaN(d) ? d : null; };
+  const all = Object.keys(p).map(dateOf).filter(Boolean);
+  const rows = [];
+  let prev = parse(e.start);
+  if (e.start) rows.push({ cls: 'done', what: 'Started', when: fmtLong(prev) });
+  pofForms(s.minor).map(f => ({ f, i: pofInfo(e, f.position) })).filter(x => x.i.passedOn)
+    .sort((a, b) => a.i.passedOn.localeCompare(b.i.passedOn))
+    .forEach(x => rows.push({ cls: 'done', what: x.f.position + ' POF passed',
+      when: fmtLong(parse(x.i.passedOn)) + (x.i.triesToPass > 1 ? `, on POF #${x.i.triesToPass}` : ', first try') +
+        (x.i.count > x.i.triesToPass ? `, ${x.i.count - x.i.triesToPass} more since` : '') }));
+  S.data.levels.filter(l => l.name !== 'MIT' || e.mit).forEach(l => {
+    const name = l.name === 'MIT' ? 'Manager in Training' : l.name;
+    const tasks = l.tasks.filter(t => !(t.restricted && s.minor));
+    let done = 0; const ds = [];
+    tasks.forEach(t => { const k = key(l.name, t.section, t.name); if (p[k]) { done++; const d = dateOf(k); if (d) ds.push(d); } });
+    if (tasks.length && done === tasks.length) {
+      const at = ds.length ? new Date(Math.max(...ds)) : null;
+      const from = l.name === 'MIT' ? (ds.length ? new Date(Math.min(...ds)) : null) : prev;
+      const took = at && from ? Math.max(0, Math.round((at - from) / DAY)) : null;
+      rows.push({ cls: 'done', what: name + ' complete',
+        when: (at ? fmtLong(at) : 'Date not recorded') + (took !== null ? `, took ${took} day${took === 1 ? '' : 's'}` : '') });
+      prev = at;
+    } else if (done > 0) {
+      const first = ds.length ? new Date(Math.min(...ds)) : null;
+      rows.push({ cls: 'started', what: name + ' in progress',
+        when: Math.round(100 * done / tasks.length) + '% done' + (first ? ', started ' + fmtLong(first) : '') });
+      prev = null;
+    } else prev = null;
+  });
+  const weeks = lastWeeks(12);
+  const counts = weeks.map(() => 0);
+  all.forEach(d => { if (d < weeks[0]) return; let i = weeks.length - 1; while (i > 0 && d < weeks[i]) i--; counts[i]++; });
+  const last = all.length ? new Date(Math.max(...all)) : null;
+  const recent = all.filter(d => Date.now() - d < 7 * DAY).length;
+  return `<details class="level" data-level="__timeline">
+    <summary><h3>Training timeline</h3>
+      <div class="meta">${last ? 'Last training ' + fmtLong(last) + ', ' + recent + ' item' + (recent === 1 ? '' : 's') + ' in the last 7 days' : 'No training signed off yet'}</div></summary>
+    <div class="tl-body">
+      ${rows.length ? `<ol class="tl">${rows.map(r => `<li class="${r.cls}"><div class="what">${esc(r.what)}</div><div class="when">${esc(r.when)}</div></li>`).join('')}</ol>` : ''}
+      <div class="meta" style="margin-bottom:6px">Items signed off per week, last 12 weeks</div>
+      ${bars(counts, weeks)}
+    </div></details>`;
+}
+
+/* ---------- Position Observation Forms on the employee page ---------- */
+function renderPofs(e) {
+  const box = document.getElementById('pofs'); if (!box) return;
+  const s = stats(e), pass = S.data.pof.pass, pp = pofPassed(e, s.minor);
+  const cards = S.data.pof.forms.map(f => {
+    const locked = s.minor && S.data.pof.restricted.indexOf(f.position) > -1;
+    const i = pofInfo(e, f.position);
+    return `<button type="button" class="pc" data-pos="${esc(f.position)}" aria-pressed="${S.pofSel === f.position}" ${locked ? 'disabled' : ''}>
+      <div class="l">${esc(f.position)}</div>
+      <div class="n">${i.count}</div><div class="s">${i.count === 1 ? 'POF' : 'POFs'} done</div>
+      <div class="s">${locked ? 'Not allowed under 18' : i.passedOn ? `<span class="ok">Passed ${esc(fmt(i.passedOn))}</span>` : 'Not passed yet'}</div>
+      ${i.last ? `<div class="s">Last: ${esc(fmt(i.last.date))}, ${i.last.score}%</div>` : ''}
+      ${i.latestBelow ? '<div style="margin-top:4px"><span class="badge missing">Latest below ' + pass + '%</span></div>' : ''}
+    </button>`;
+  }).join('');
+  box.innerHTML = `<div class="pof-head"><h3>Position Observation Forms</h3><span class="meta">${pp.passed} of ${pp.total} passed (${pass}% or higher)</span></div>
+    <div class="pcards">${cards}</div>
+    <div class="pof-detail">${S.pofSel ? (S.pofForm ? pofFormHtml() : pofHistoryHtml(e)) : '<p class="meta" style="margin:0">Select a position to see its POF history or start a new POF.</p>'}</div>`;
+}
+
+function pofHistoryHtml(e) {
+  const pass = S.data.pof.pass, i = pofInfo(e, S.pofSel);
+  const form = S.data.pof.forms.find(f => f.position === S.pofSel);
+  const rows = i.list.slice().reverse().map(f => {
+    const open = S.pofOpen === f.id;
+    let missed = [];
+    if (open) {
+      let k = 0;
+      form.sections.forEach(sec => sec.items.forEach(item => { if (f.answers[k] === 'n') missed.push(sec.name + ': ' + item); k++; }));
+    }
+    return `<button type="button" class="hist" data-hist="${esc(f.id)}" aria-expanded="${open}">
+        <span>${esc(fmt(f.date))}, observed by ${esc(f.trainer || 'unknown')}</span>
+        <span>${f.score}% <span class="tag ${f.score >= pass ? 'pass' : 'fail'}">${f.score >= pass ? 'Passed' : 'Below ' + pass + '%'}</span></span></button>
+      ${open ? `<div class="hist-body">${missed.length ? `<b>Marked no:</b><ul style="margin:4px 0 8px 18px;padding:0">${missed.map(m => `<li>${esc(m)}</li>`).join('')}</ul>` : '<p style="margin:0 0 8px">Every item marked yes.</p>'}
+        ${f.comments ? `<b>Comments:</b> ${esc(f.comments)}` : '<span class="muted">No comments.</span>'}</div>` : ''}`;
+  }).join('');
+  return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+      <b style="margin-right:auto">${esc(S.pofSel)} POF history${i.triesToPass ? ` <span class="meta">(passed on POF #${i.triesToPass})</span>` : ''}</b>
+      <button type="button" class="btn primary" data-act="new">New ${esc(S.pofSel)} POF</button></div>
+    ${rows || '<p class="meta" style="margin:0">No POFs yet for this position.</p>'}`;
+}
+
+function pofFormHtml() {
+  const F = S.pofForm, form = S.data.pof.forms.find(f => f.position === F.position), pass = S.data.pof.pass;
+  const answered = F.answers.filter(Boolean).length, yes = F.answers.filter(a => a === 'y').length, n = F.answers.length;
+  let k = 0;
+  return `<div style="display:flex;align-items:baseline;gap:10px">
+      <b style="margin-right:auto;font-size:18px">New ${esc(F.position)} POF</b>
+      <span class="pof-score">${answered ? Math.round(100 * yes / answered) : 0}%</span></div>
+    <div class="meta">${answered} of ${n} answered. Passing is ${pass}% or higher.</div>
+    <div class="grid2">
+      <div><label for="pof_date">Date observed</label><input id="pof_date" type="date" value="${esc(F.date)}" max="${S.data.today}"></div>
+      <div><label for="pof_trainer">Trainer</label><input id="pof_trainer" value="${esc(F.trainer)}"></div>
+    </div>
+    ${form.sections.map(sec => `<div class="pof-sec">${esc(sec.name)}</div>${sec.items.map(item => {
+      const i = k++, a = F.answers[i];
+      return `<div class="pof-item"><span>${esc(item)}</span><div class="yn" role="group" aria-label="${esc(item)}">
+        <button type="button" class="y" data-yn="y" data-i="${i}" aria-pressed="${a === 'y'}">Yes</button>
+        <button type="button" class="n" data-yn="n" data-i="${i}" aria-pressed="${a === 'n'}">No</button></div></div>`;
+    }).join('')}`).join('')}
+    <label for="pof_comments">Comments</label><textarea id="pof_comments" placeholder="What to work on before the next POF">${esc(F.comments)}</textarea>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button type="button" class="btn" data-act="cancel">Cancel</button>
+      <button type="button" class="btn primary" data-act="save" style="flex:1" ${answered < n ? 'disabled' : ''}>${answered < n ? `Answer all ${n} items to save` : 'Save POF'}</button></div>`;
+}
+
+function bindPofs(e) {
+  const box = document.getElementById('pofs'); if (!box) return;
+  box.oninput = ev => {
+    if (!S.pofForm) return;
+    if (ev.target.id === 'pof_date') S.pofForm.date = ev.target.value;
+    if (ev.target.id === 'pof_trainer') S.pofForm.trainer = ev.target.value;
+    if (ev.target.id === 'pof_comments') S.pofForm.comments = ev.target.value;
+  };
+  box.onclick = async ev => {
+    const b = ev.target.closest('button'); if (!b || b.disabled) return;
+    if (b.dataset.pos) { S.pofSel = S.pofSel === b.dataset.pos ? null : b.dataset.pos; S.pofForm = null; S.pofOpen = null; return renderPofs(e); }
+    if (b.dataset.hist) { S.pofOpen = S.pofOpen === b.dataset.hist ? null : b.dataset.hist; return renderPofs(e); }
+    if (b.dataset.yn) { S.pofForm.answers[Number(b.dataset.i)] = b.dataset.yn; return renderPofs(e); }
+    const act = b.dataset.act;
+    if (act === 'new') {
+      const form = S.data.pof.forms.find(f => f.position === S.pofSel);
+      const n = form.sections.reduce((a, sec) => a + sec.items.length, 0);
+      S.pofForm = { position: S.pofSel, answers: new Array(n).fill(''), date: S.data.today, trainer: S.data.user.name, comments: '' };
+      return renderPofs(e);
+    }
+    if (act === 'cancel') { S.pofForm = null; return renderPofs(e); }
+    if (act === 'save') {
+      const F = S.pofForm;
+      b.disabled = true; b.textContent = 'Saving…';
+      try {
+        const rec = await call('savePof', S.token, e.id, { position: F.position, date: F.date, trainer: F.trainer, comments: F.comments, answers: F.answers.join('') });
+        (S.roster.pofs[e.id] = S.roster.pofs[e.id] || []).push(rec);
+        S.pofForm = null; S.pofOpen = rec.id;
+        renderPofs(e); refreshPanel(e); renderList();
+        toast(`${rec.position} POF saved: ${rec.score}%, ${rec.score >= S.data.pof.pass ? 'passed' : 'below ' + S.data.pof.pass + '%'}.`);
+      } catch (err) { fail(err); b.disabled = false; b.textContent = 'Save POF'; }
+    }
+  };
+}
+
+// "Check all" / "Uncheck all" buttons for a whole phase (section blank) or one station.
+function bulkBar(level, section, done, total, label) {
+  if (!total) return '';
+  return `<div class="bulk">
+    ${done < total ? `<button type="button" class="btn sm" data-bulk="1" data-level="${esc(level)}" data-section="${esc(section)}">Check ${esc(label)}</button>` : ''}
+    ${done > 0 ? `<button type="button" class="btn sm" data-bulk="0" data-level="${esc(level)}" data-section="${esc(section)}">Uncheck ${esc(label)}</button>` : ''}
+  </div>`;
+}
+
+function bindTasks(e) {
+  const box = document.getElementById('levels');
+  box.onchange = async ev => {
+    const cb = ev.target; if (!cb.matches('input[type=checkbox]')) return;
+    const level = cb.dataset.level, section = cb.dataset.section, task = cb.dataset.task, done = cb.checked;
+    const p = S.roster.progress[e.id] = S.roster.progress[e.id] || {};
+    const k = key(level, section, task);
+    const before = p[k];
+    const apply = () => { done ? p[k] = new Date().toISOString() : delete p[k]; };
+    const undo = () => { before ? p[k] = before : delete p[k]; };
+    apply(); refreshPanel(e, cb); renderSummary(); renderList();
+    try { await call('setTask', S.token, e.id, level, section, task, done); }
+    catch (err) { undo(); refreshPanel(e, cb); renderSummary(); renderList(); fail(err); }
+  };
+  box.onclick = async ev => {
+    const b = ev.target.closest('button[data-bulk]'); if (!b || b.disabled) return;
+    ev.preventDefault();
+    // First tap arms the button; second tap within 4 seconds does it.
+    if (b.dataset.armed !== '1') {
+      b.dataset.armed = '1'; b.dataset.label = b.textContent; b.textContent = 'Tap again to confirm'; b.classList.add('armed');
+      setTimeout(() => { if (b.isConnected && b.dataset.armed === '1') { b.dataset.armed = ''; b.textContent = b.dataset.label; b.classList.remove('armed'); } }, 4000);
+      return;
+    }
+    const level = b.dataset.level, section = b.dataset.section, done = b.dataset.bulk === '1';
+    b.disabled = true; b.textContent = 'Saving…';
+    try {
+      const r = await call('setManyTasks', S.token, e.id, level, section, done);
+      const lv = S.data.levels.find(l => l.name === level);
+      const s = stats(e), p = S.roster.progress[e.id] = S.roster.progress[e.id] || {};
+      lv.tasks.filter(t => !section || t.section === section).forEach(t => {
+        const k = key(level, t.section, t.name);
+        if (!done) { delete p[k]; return; }
+        if (t.restricted && (s.minor || !e.dob)) return;
+        if (!p[k]) p[k] = r.at;
+      });
+      refreshPanel(e); renderSummary(); renderList();
+      toast((done ? 'Checked ' : 'Unchecked ') + r.changed + ' item' + (r.changed === 1 ? '' : 's') + '.' +
+        (r.skipped.length ? ' Skipped ' + r.skipped.length + ' slicer item' + (r.skipped.length === 1 ? '' : 's') + (s.minor ? ' (under 18).' : ' (add a date of birth first).') : ''));
+    } catch (err) { fail(err); b.disabled = false; b.textContent = b.dataset.label || 'Try again'; }
+  };
+}
+
+// Re-render the checklist, keeping open sections open (needed so MIT checkpoints unlock as you go).
+function refreshPanel(e, cb) {
+  const box = document.getElementById('levels');
+  const openLv = [...box.querySelectorAll('details.level[open]')].map(d => d.dataset.level);
+  const openSec = [...box.querySelectorAll('details.sec[open]')].map(d => d.closest('details.level').dataset.level + '|' + d.dataset.sec);
+  const y = document.querySelector('.panel').scrollTop;
+  box.innerHTML = levelsHtml(e);
+  box.querySelectorAll('details.level').forEach(d => d.open = openLv.indexOf(d.dataset.level) > -1);
+  box.querySelectorAll('details.sec').forEach(d => d.open = openSec.indexOf(d.closest('details.level').dataset.level + '|' + d.dataset.sec) > -1);
+  document.querySelector('.panel').scrollTop = y;
+}
+
+async function saveEmp(id) {
+  const btn = document.getElementById('saveBtn');
+  const v = x => document.getElementById(x).value;
+  const payload = { id, store: S.store, name: v('f_name'), dob: v('f_dob'), start: v('f_start'), position: v('f_pos'), status: v('f_status'), mit: v('f_mit'), notes: v('f_notes') };
+  if (!payload.name.trim()) { toast('Enter the employee\'s name.'); return; }
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const r = await call('saveEmployee', S.token, payload);
+    S.roster = await call('getRoster', S.token, S.store);
+    renderSummary(); renderList(); openPanel(r.id);
+    toast(id ? 'Details saved.' : 'Employee added.');
+  } catch (e) { fail(e); btn.disabled = false; btn.textContent = id ? 'Save details' : 'Add employee'; }
+}
+
+/* ---------- Explanation pop-ups (hover on a computer, tap on a phone) ---------- */
+function tip(text) { return `<button type="button" class="tip" data-tip="${esc(text)}" aria-label="What does this mean?" aria-expanded="false">?</button>`; }
+const tipBox = () => document.getElementById('tipBox');
+let tipOwner = null;
+function showTip(btn) {
+  const box = tipBox(); box.textContent = btn.dataset.tip; box.hidden = false;
+  const r = btn.getBoundingClientRect(), w = box.offsetWidth, h = box.offsetHeight;
+  let left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), window.innerWidth - w - 8);
+  let top = r.bottom + 8; if (top + h > window.innerHeight - 8) top = r.top - h - 8;
+  box.style.left = left + 'px'; box.style.top = top + 'px';
+  if (tipOwner && tipOwner !== btn) tipOwner.setAttribute('aria-expanded', 'false');
+  tipOwner = btn; btn.setAttribute('aria-expanded', 'true');
+}
+function hideTip() { tipBox().hidden = true; if (tipOwner) tipOwner.setAttribute('aria-expanded', 'false'); tipOwner = null; }
+document.addEventListener('mouseover', ev => { const b = ev.target.closest && ev.target.closest('.tip'); if (b) showTip(b); });
+document.addEventListener('mouseout', ev => { const b = ev.target.closest && ev.target.closest('.tip'); if (b && b === tipOwner) hideTip(); });
+document.addEventListener('focusin', ev => { if (ev.target.classList && ev.target.classList.contains('tip')) showTip(ev.target); });
+document.addEventListener('focusout', ev => { if (ev.target === tipOwner) hideTip(); });
+document.addEventListener('click', ev => {
+  const b = ev.target.closest && ev.target.closest('.tip');
+  if (b) { ev.preventDefault(); ev.stopPropagation(); (tipOwner === b && !tipBox().hidden) ? hideTip() : showTip(b); return; }
+  if (tipOwner) hideTip();
+}, true);
+window.addEventListener('scroll', () => { if (tipOwner) hideTip(); }, true);
+
+const TIPS = {
+  last7: 'Training items checked off in the app over the last 7 days, today included.',
+  prev7: 'Training items checked off in the 7 days before that. Comparing two full 7-day stretches keeps the change fair on any day of the week.',
+  change: 'How the last 7 days compare to the 7 days before, as a percent. Green ▲ means more training, red ▼ means less. "New" means there was training this week but none the week before.',
+  training: 'How many different employees had at least one training item checked off in the last 7 days.',
+  pofs7: 'Position Observation Forms done in the last 7 days, including repeat POFs.',
+  who: 'Everyone with at least one training item checked off in the last 7 days, most active first.',
+  working: 'The step this person is on now and how far through it they are.',
+  avgDays: 'How long it took people to finish each step. Phase 1 counts from their start date, Phase 3 from finishing Phase 1, Phase 2 from finishing Phase 3, and MIT from their first to last checkpoint. The number in brackets is how many people the average is based on.',
+  finished: n => `How many current employees have checked off every item in ${n}, including anyone who has moved on past it.`,
+  inMit: 'Employees currently enrolled in the Manager in Training program, or who graduated from it.',
+  staff: 'Active employees on this store\'s roster. Former employees aren\'t counted.',
+  under18: 'Employees under 18, worked out from their date of birth. They move out of this count automatically on their 18th birthday.',
+  avgTime: 'Average time since start date for everyone on the roster.',
+  under90: 'Employees who started in the last 90 days.',
+  attention: 'People missing a date of birth or start date, plus anyone 3+ weeks in who has had no training checked off in 14 days.'
+};
+
+// Percent change: "▲ 45%", "▼ 20%", "New" when the earlier number was 0, "–" when both are 0.
+function pctChange(now, before) {
+  if (!before && !now) return '<span class="muted">–</span>';
+  if (!before) return '<span class="up">New</span>';
+  const p = Math.round(100 * (now - before) / before);
+  return p === 0 ? '<span class="muted">0%</span>' : `<span class="${p > 0 ? 'up' : 'down'}">${p > 0 ? '▲' : '▼'} ${Math.abs(p)}%</span>`;
+}
+const SINCE = { 'Phase 1': 'from start date', 'Phase 3': 'after Phase 1', 'Phase 2': 'after Phase 3', 'MIT': 'first to last checkpoint' };
+
+async function loadTrends() {
+  const main = document.getElementById('main');
+  main.innerHTML = '<p class="muted">Loading trends…</p>';
+  let data;
+  try { data = await call('getTrends', S.token); }
+  catch (e) { fail(e); main.innerHTML = '<div class="empty">Trends didn\'t load. Refresh and try again.</div>'; return; }
+  const sum = f => data.stores.reduce((a, s) => a + f(s), 0);
+  const now = sum(s => s.week), before = sum(s => s.prevWeek), diff = now - before;
+  const stores = data.stores.slice().sort((a, b) => b.week - a.week || a.name.localeCompare(b.name));
+  main.innerHTML = `
+    <div class="summary">
+      <div class="tile"><div class="lbl">Last 7 days ${tip(TIPS.last7)}</div><div class="big">${now}</div><div class="sub">items signed off</div></div>
+      <div class="tile"><div class="lbl">7 days before ${tip(TIPS.prev7)}</div><div class="big">${before}</div><div class="sub">items signed off</div></div>
+      <div class="tile"><div class="lbl">Change ${tip(TIPS.change)}</div><div class="big">${pctChange(now, before)}</div>
+        <div class="sub">${diff === 0 ? 'Same as the week before' : Math.abs(diff) + (diff > 0 ? ' more' : ' fewer') + ' item' + (Math.abs(diff) === 1 ? '' : 's')}</div></div>
+      <div class="tile"><div class="lbl">People training ${tip(TIPS.training)}</div><div class="big">${sum(s => s.training)}</div><div class="sub">of ${sum(s => s.staff)} on the roster</div></div>
+    </div>
+    <section class="card">
+      <h3>${data.stores.length > 1 ? 'Stores' : esc(data.stores[0] ? data.stores[0].name : 'Store')}</h3>
+      <p class="muted">Busiest store first. Select a store name to open its roster.</p>
+      <div class="table-wrap"><table class="static">
+        <thead><tr><th>Store</th>
+          <th class="num">People training ${tip(TIPS.training)}</th>
+          <th class="num">Last 7 days ${tip(TIPS.last7)}</th>
+          <th class="num">7 days before ${tip(TIPS.prev7)}</th>
+          <th class="num">Change ${tip(TIPS.change)}</th>
+          <th class="num">POFs, last 7 days ${tip(TIPS.pofs7)}</th></tr></thead>
+        <tbody>${stores.map(s => `<tr>
+          <td><a href="#" data-store="${esc(s.id)}"><b>${esc(s.name)}</b></a> <span class="muted">#${esc(s.id)}</span></td>
+          <td class="num">${s.training} <span class="muted">of ${s.staff}</span></td>
+          <td class="num"><b>${s.week}</b></td><td class="num">${s.prevWeek}</td>
+          <td class="num">${s.week || s.prevWeek ? pctChange(s.week, s.prevWeek) : '<span class="muted">No training</span>'}</td>
+          <td class="num">${s.pofs7}</td></tr>`).join('')}</tbody>
+      </table></div>
+    </section>
+    <section class="card">
+      <h3>Who's training ${tip(TIPS.who)}</h3>
+      <p class="muted">${data.people.length ? data.people.length + (data.people.length === 1 ? ' person' : ' people') + ' had training checked off in the last 7 days.' : 'Nobody has had training checked off in the last 7 days.'}</p>
+      ${data.people.length ? `<div class="table-wrap"><table class="static">
+        <thead><tr><th>Name</th>${data.stores.length > 1 ? '<th>Store</th>' : ''}<th>Working on ${tip(TIPS.working)}</th>
+          <th class="num">Last 7 days ${tip(TIPS.last7)}</th><th class="num">7 days before ${tip(TIPS.prev7)}</th></tr></thead>
+        <tbody>${data.people.map(p => `<tr><td><b>${esc(p.name)}</b></td>${data.stores.length > 1 ? `<td>${esc(p.store)}</td>` : ''}
+          <td>${esc(p.stage)}${p.pct !== null ? `, ${p.pct}%` : ''}</td><td class="num"><b>${p.week}</b></td><td class="num">${p.prevWeek}</td></tr>`).join('')}</tbody>
+      </table></div>` : ''}
+    </section>
+    <section class="card">
+      <h3>Average days to finish each step ${tip(TIPS.avgDays)}</h3>
+      <p class="muted">Based on everyone who has finished. The number in brackets is how many people that covers.</p>
+      <div class="table-wrap"><table class="static">
+        <thead><tr><th>Store</th>${data.levels.map(n => `<th class="num">${esc(n)}<br><span style="font-weight:400">${esc(SINCE[n] || '')}</span></th>`).join('')}</tr></thead>
+        <tbody>${stores.map(s => `<tr><td><b>${esc(s.name)}</b></td>${data.levels.map(n => {
+          const a = s.avgDays[n];
+          return `<td class="num">${a ? `${a.avg} days <span class="muted">(${a.n})</span>` : '<span class="muted">–</span>'}</td>`;
+        }).join('')}</tr>`).join('')}</tbody>
+      </table></div>
+    </section>`;
+  main.querySelectorAll('a[data-store]').forEach(a => a.onclick = ev => {
+    ev.preventDefault();
+    S.store = a.dataset.store; save('lst_store', S.store);
+    const sel = document.getElementById('storeSel'); if (sel) sel.value = S.store;
+    setView('roster');
+  });
+}
+
+/* ---------- Activity log (admins only) ---------- */
+async function loadActivity() {
+  S.actDays = S.actDays || 14;
+  const main = document.getElementById('main');
+  main.innerHTML = '<p class="muted">Loading activity…</p>';
+  let d;
+  try { d = await call('getActivity', S.token, S.actDays); }
+  catch (e) { fail(e); main.innerHTML = '<div class="empty">The activity log didn\'t load. Refresh and try again.</div>'; return; }
+  if (S.view !== 'activity') return;
+  S.act = d;
+  const ago = n => n == null || n < 0 ? 'Never' : n === 0 ? 'Today' : n === 1 ? 'Yesterday' : `${n} days ago`;
+  const chip = (n, login) => login === 'none' ? '<span class="sc n">No login</span>' : login === 'pending' ? '<span class="sc n">PIN not locked in</span>'
+    : `<span class="sc ${n == null || n < 0 || n > 7 ? 'r' : n > 2 ? 'y' : 'g'}">${ago(n)}</span>`;
+  const noLogin = d.users.filter(u => u.login === 'none' || u.login === 'pending');
+  const missing = d.noManagerLogin || [];
+  const roleName = r => r === 'admin' ? 'Admin' : r === 'dm' ? 'District manager' : r === 'manager' ? 'Store manager' : esc(r || '');
+  const zero = v => v ? v : '<span class="muted">0</span>';
+  const periods = [7, 14, 30, 90];
+  main.innerHTML = `
+    <section class="card">
+      <h3>Who's using the tracker</h3>
+      <p><label class="muted" for="actDays">Counts for the last </label>
+        <select id="actDays">${periods.map(p => `<option value="${p}" ${p === d.days ? 'selected' : ''}>${p} days</option>`).join('')}</select></p>
+      <div class="table-wrap"><table class="static">
+        <thead><tr><th>User</th><th>Role</th><th>Stores</th><th>Last active</th>
+          <th class="num">Visits</th><th class="num">Check-offs</th><th class="num">Other updates</th></tr></thead>
+        <tbody>${d.users.map(u => `<tr>
+          <td><b>${esc(u.name)}</b><br><span class="muted">${esc(u.email)}</span></td>
+          <td>${roleName(u.role)}</td>
+          <td>${esc(u.stores) || '<span class="muted">–</span>'}</td>
+          <td>${chip(u.daysAgo, u.login)}${u.lastText ? `<br><span class="muted">${esc(u.lastText)} · ${esc(u.lastAction)}</span>` : ''}</td>
+          <td class="num">${zero(u.visits)}</td><td class="num">${zero(u.checks)}</td><td class="num">${zero(u.edits)}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+    </section>
+    <section class="card">
+      <h3>Recent activity</h3>
+      <p><label class="muted" for="actWho">Show </label>
+        <select id="actWho"><option value="">Everyone</option>${d.users.filter(u => u.lastText).map(u => `<option value="${esc(u.email)}">${esc(u.name)}</option>`).join('')}</select></p>
+      <div id="actList"></div>
+    </section>`;
+  const list = who => {
+    const rows = d.recent.filter(x => !who || x.email === who);
+    document.getElementById('actList').innerHTML = rows.length ? `
+      <div class="table-wrap"><table class="static">
+        <thead><tr><th>When</th><th>Who</th><th>Store</th><th>Action</th><th>Details</th></tr></thead>
+        <tbody>${rows.map(x => `<tr><td>${esc(x.when)}</td><td>${esc(x.name)}</td><td>${esc(x.store) || '<span class="muted">–</span>'}</td>
+          <td>${esc(x.action)}</td><td>${esc(x.details) || '<span class="muted">–</span>'}</td></tr>`).join('')}</tbody>
+      </table></div>
+      ${d.total > d.recent.length ? `<p class="muted">Showing the newest ${d.recent.length} of ${d.total}. The full list is on the sheet's Activity tab.</p>` : ''}`
+      : `<div class="empty">No activity in the last ${d.days} days yet.</div>`;
+  };
+  list('');
+  document.getElementById('actWho').onchange = ev => list(ev.target.value);
+  document.getElementById('actDays').onchange = ev => { S.actDays = Number(ev.target.value); loadActivity(); };
+}
+
+/* ---------- Scorecard ---------- */
+function scoreChip(v, passAt) {
+  if (v === null || v === undefined) return '<span class="sc n">–</span>';
+  const cls = v >= (passAt || 90) ? 'g' : v >= (passAt ? passAt - 10 : 75) ? 'y' : 'r';
+  return `<span class="sc ${cls}">${v}${passAt ? '%' : ''}</span>`;
+}
+
+async function loadScorecard() {
+  const main = document.getElementById('main');
+  main.innerHTML = '<p class="muted">Loading scorecard…</p>';
+  let d;
+  try { d = await call('getScorecard', S.token); }
+  catch (e) { fail(e); main.innerHTML = '<div class="empty">The scorecard didn\'t load. Refresh and try again.</div>'; return; }
+  const rows = d.stores.slice().sort((a, b) => (b.score == null ? -1 : b.score) - (a.score == null ? -1 : a.score) || a.name.localeCompare(b.name));
+  const needs = d.requirement.map(r => `${r.position}s need ${r.needs}`).join('. ');
+  const T = {
+    score: `${d.weight}% Trained plus ${100 - d.weight}% POF average (just the Trained % if a store has no POFs yet), plus bonus points: +${d.p2Bonus} for each person who finished Phase 2 and +${d.mitBonus} for each who finished MIT, up to +${d.bonusCap} in total. With the bonus a store can score up to ${100 + d.bonusCap}. 90 or higher is green, 75 to 89 is yellow, under 75 is red.`,
+    trained: `Share of staff who have finished the training their position needs. ${needs}. Everyone counts from their first day; former employees never do.`,
+    pof: `Average of each person's most recent POF score, across all five positions. Earlier attempts don't count, and POFs don't expire. People with no POF on file aren't counted as zero.`,
+    notTrained: `People with no training boxes checked yet.`,
+    pofTable: `Average of each person's most recent POF for that position. The small number is how many people it covers. Green is ${d.pass}% or higher (passing), yellow is ${d.pass - 10}–${d.pass - 1}%, red is under ${d.pass - 10}%.`
+  };
+  main.innerHTML = `
+    <section class="card">
+      <h3>Store training scorecard</h3>
+      <p class="muted">One score for each store, best first. 100 is the base, and Phase 2 and MIT finishers add bonus points on top. Tap or hover any <b>?</b> to see how a number is worked out.</p>
+      <div class="table-wrap"><table class="static">
+        <thead><tr><th>Store</th><th class="num">Score ${tip(T.score)}</th><th class="num">Trained ${tip(T.trained)}</th>
+               ${d.requirement.map(r => `<th class="num">${esc(r.position)}s ${tip('Counts as trained once they finish ' + r.needs + '.')}</th>`).join('')}
+          <th class="num">POF average ${tip(T.pof)}</th><th class="num">Not yet trained ${tip(T.notTrained)}</th></tr></thead>
+        <tbody>${rows.concat(d.company ? [d.company] : []).map(s => `<tr${s.company ? ' class="company"' : ''}>
+          <td><b>${esc(s.name)}</b> ${s.company ? `<span class="muted">across ${s.storeCount} stores</span>` : `<span class="muted">#${esc(s.id)}</span>`}${s.stable ? '<span class="pill">Fully trained</span>' : ''}</td>
+          <td class="num">${scoreChip(s.score)}${s.bonus ? `<span class="small">+${s.bonus} bonus</span>` : ''}</td>
+          <td class="num">${s.trainedPct == null ? '<span class="muted">–</span>' : `<b>${s.trainedPct}%</b><span class="small">${s.trained} of ${s.counted}</span>`}</td>
+          ${s.byPos.map(b => `<td class="num">${b.total ? `${b.trained} of ${b.total}` : '<span class="muted">–</span>'}</td>`).join('')}
+          <td class="num">${s.pofAvg == null ? '<span class="muted">No POFs yet</span>' : `<b>${s.pofAvg}%</b><span class="small">${s.pofPeople} POF${s.pofPeople === 1 ? '' : 's'}</span>`}</td>
+          <td class="num">${s.notTrained || '<span class="muted">0</span>'}</td>
+          </tr>`).join('')}</tbody>
+      </table></div>
+      <div class="how">
+        <div><b>Fully trained stores aren't penalized</b>Training activity isn't part of the score, so a stable store with no one left to train keeps its score.</div>
+        <div><b>Trained depends on the position</b>${esc(needs)}. Phase 2 and MIT are extra steps: they never count against anyone, and each person who finishes one adds bonus points (+${d.p2Bonus} for Phase 2, +${d.mitBonus} for MIT, up to +${d.bonusCap}).</div>
+        <div><b>Only the latest POF counts</b>If someone scored 80% and then 97%, the store gets credit for 97%.</div>
+      </div>
+    </section>
+    <section class="card">
+      <h3>POF scores by store ${tip(T.pofTable)}</h3>
+      <p class="muted">Average of each person's most recent POF for each position.</p>
+      <div class="table-wrap"><table class="static">
+        <thead><tr><th>Store</th>${d.positions.map(p => `<th class="num">${esc(p)}</th>`).join('')}<th class="num">All POFs</th></tr></thead>
+        <tbody>${rows.concat(d.company ? [d.company] : []).map(s => `<tr${s.company ? ' class="company"' : ''}><td><b>${esc(s.name)}</b></td>
+          ${s.pofByPos.map(x => `<td class="num">${x.n ? `${scoreChip(x.avg, d.pass)}<span class="small">${x.n} ${x.n === 1 ? 'person' : 'people'}</span>` : '<span class="muted">–</span>'}</td>`).join('')}
+          <td class="num">${s.pofAvg == null ? '<span class="muted">–</span>' : `<b>${s.pofAvg}%</b>`}</td></tr>`).join('')}</tbody>
+      </table></div>
+    </section>`;
+}
+
+/* ---------- All stores ---------- */
+function fmtAvg(days) { return days === null ? '–' : tenure(days); }
+
+async function loadOverview() {
+  const main = document.getElementById('main');
+  main.innerHTML = '<p class="muted">Loading stores…</p>';
+  let data;
+  try { data = await call('getOverview', S.token); }
+  catch (e) { fail(e); main.innerHTML = '<div class="empty">The store summary didn\'t load. Refresh and try again.</div>'; return; }
+  const sum = f => data.reduce((a, s) => a + f(s), 0);
+  const st = (s, n) => s.stages.find(x => x.name === n).count;
+  const pos = (s, n) => (s.positions.find(x => x.name === n) || { count: 0 }).count;
+  const fin = (s, n) => ((s.finished || []).find(x => x.name === n) || { count: 0 }).count;
+  const P = S.data.positions;
+  main.innerHTML = `
+    <div class="summary">
+      <div class="tile"><div class="num">${sum(s => s.active)}</div><div class="lbl">On all rosters</div>
+        <div class="sub">${P.map(p => sum(s => pos(s, p)) + ' ' + p.toLowerCase() + 's').join(', ')}</div></div>
+      <div class="tile"><div class="num">${sum(s => s.minors)}</div><div class="lbl">Under 18</div>
+        <div class="sub">${sum(s => s.ages.under16)} under 16</div></div>
+      <div class="tile"><div class="num">${sum(s => fin(s, 'Phase 1'))}</div><div class="lbl">Phase 1 certified</div>
+        <div class="sub">${sum(s => fin(s, 'Phase 3'))} Phase 3 certified, ${sum(s => fin(s, 'Phase 2'))} Phase 2 certified, ${sum(s => st(s, 'MIT'))} in MIT, ${sum(s => fin(s, 'ServSafe'))} ServSafe certified</div></div>
+    </div>
+    <div class="table-wrap"><table>
+    <thead><tr><th>Store</th><th>Staff ${tip(TIPS.staff)}</th>${P.map(p => `<th>${esc(p)}s</th>`).join('')}<th>Under 18 ${tip(TIPS.under18)}</th>
+      <th>Avg time here ${tip(TIPS.avgTime)}</th><th>Under 90 days ${tip(TIPS.under90)}</th>
+      ${CERT_ORDER.concat(['ServSafe']).map(n => `<th>${esc(n)} certified ${tip(TIPS.finished(n))}</th>`).join('')}<th>In MIT ${tip(TIPS.inMit)}</th>
+      <th>Last 7 days ${tip(TIPS.last7 + ' The change compares it to the 7 days before.')}</th><th>Needs attention ${tip(TIPS.attention)}</th></tr></thead>
+    <tbody>${data.map(s => {
+      const attn = s.stalled.length + s.missing.length;
+      return `<tr data-id="${esc(s.id)}" tabindex="0"><td><b>${esc(s.name)}</b> <span class="muted">#${esc(s.id)}</span></td>
+        <td>${s.active}</td>${P.map(p => `<td>${pos(s, p)}</td>`).join('')}<td>${s.minors}</td><td>${esc(fmtAvg(s.tenure.avgDays))}</td><td>${s.tenure.under90}</td>
+        ${(s.finished || []).map((f, i) => `<td>${i === 0 ? `<b>${f.count}</b> <span class="muted">of ${s.active}</span>` : f.count}</td>`).join('')}<td>${st(s, 'MIT')}</td>
+        <td><b>${s.checksThisWeek}</b> ${s.checksThisWeek || s.checksPrevWeek ? pctChange(s.checksThisWeek, s.checksPrevWeek) : ''}</td>
+        <td class="${attn ? 'attn' : 'muted'}">${attn ? attn + (attn === 1 ? ' person' : ' people') : 'None'}</td></tr>`;
+    }).join('')}</tbody></table></div>
+    <section class="card" id="emailCard" style="margin-top:14px"><p class="muted" style="margin:0">Loading weekly email settings…</p></section>
+    <p class="muted" style="font-size:14px">Tap or hover any <b>?</b> to see what a number means. Select a store to open its roster.</p>`;
+  main.querySelectorAll('tbody tr').forEach(tr => {
+    const go = () => {
+      S.store = tr.dataset.id; save('lst_store', S.store);
+      const sel = document.getElementById('storeSel'); if (sel) sel.value = S.store;
+      setView('roster');
+    };
+    tr.onclick = go; tr.onkeydown = ev => { if (ev.key === 'Enter') go(); };
+  });
+  loadEmailCard();
+}
+
+/* ---------- Weekly email settings (All stores tab) ---------- */
+function hourLabel(h) { return h === 0 ? '12 AM' : h < 12 ? h + ' AM' : h === 12 ? '12 PM' : (h - 12) + ' PM'; }
+
+async function loadEmailCard() {
+  const card = document.getElementById('emailCard'); if (!card) return;
+  let st;
+  try { st = await call('getEmailSettings', S.token); }
+  catch (e) { card.innerHTML = `<p class="muted" style="margin:0">${esc(msg(e))}</p>`; return; }
+  card.innerHTML = `
+    <h3>Weekly email</h3>
+    <p class="muted">${st.on ? `On: sends every ${esc(st.day)} around ${hourLabel(st.hour)}.` : 'Off: save below to turn it on.'} It includes every store's roster counts, training progress, change from last week, POFs, and who needs attention.</p>
+    <label for="em_to">Send to (separate emails with commas)</label>
+    <textarea id="em_to" rows="2">${esc(st.to)}</textarea>
+    <div class="grid2">
+      <div><label for="em_day">Day</label><select id="em_day">${st.days.map(d => `<option ${d === st.day ? 'selected' : ''}>${d}</option>`).join('')}</select></div>
+      <div><label for="em_hour">Time</label><select id="em_hour">${Array.from({ length: 24 }, (_, h) => `<option value="${h}" ${h === st.hour ? 'selected' : ''}>${hourLabel(h)}</option>`).join('')}</select></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+      <button type="button" class="btn primary" id="em_save">Save schedule</button>
+      <button type="button" class="btn" id="em_send">Send the email now</button>
+    </div>`;
+  document.getElementById('em_save').onclick = async ev => {
+    const b = ev.target; b.disabled = true; b.textContent = 'Saving…';
+    try {
+      await call('saveEmailSettings', S.token, { to: document.getElementById('em_to').value, day: document.getElementById('em_day').value, hour: document.getElementById('em_hour').value });
+      toast('Weekly email schedule saved.'); loadEmailCard();
+    } catch (e) { fail(e); b.disabled = false; b.textContent = 'Save schedule'; }
+  };
+  document.getElementById('em_send').onclick = async ev => {
+    const b = ev.target; b.disabled = true; b.textContent = 'Sending…';
+    try { const to = await call('sendEmailNow', S.token); toast('Weekly email sent to ' + to + '.'); }
+    catch (e) { fail(e); }
+    b.disabled = false; b.textContent = 'Send the email now';
+  };
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && S.open) { document.getElementById('panelRoot').innerHTML = ''; S.open = null; } });
+
+(async function init() {
+  const t = read('lst_token');
+  if (t) {
+    try { const d = await call('resume', t); S.token = t; start(d); return; }
+    catch (e) { save('lst_token', null); }
+  }
+  renderLogin();
+})();
+</script>
+<?!= HtmlService.createHtmlOutputFromFile('PlanTab').getContent(); ?>
+</body>
+</html>
