@@ -1,0 +1,256 @@
+<!--
+  PlanTab.html — the "Weekly plan" tab for the Training Tracker.
+  Included into Index.html. Show it with:
+      WeeklyPlan.mount(containerElement, sessionToken, storeId);
+-->
+<style>
+  .wp { font-family: inherit; color: inherit; max-width: 760px; margin: 0 auto; }
+  .wp-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
+  .wp-title { font-size:18px; font-weight:600; }
+  .wp-sub { font-size:12px; color:var(--muted); }
+  .wp-pill { font-size:12px; padding:3px 10px; border-radius:6px; white-space:nowrap; }
+  .wp-pill.Draft, .wp-pill.New { background:var(--warn-bg); color:var(--warn); }
+  .wp-pill.Sent { background:var(--line); color:var(--done); }
+  .wp-legend { display:flex; gap:14px; font-size:12px; color:var(--muted); margin:6px 0 4px; flex-wrap:wrap; }
+  .wp-auto, .wp-you { font-size:11px; padding:1px 7px; border-radius:5px; font-weight:400; }
+  .wp-auto { background:var(--line); color:var(--ink); }
+  .wp-you { background:var(--warn-bg); color:var(--warn); }
+  .wp h3 { font-size:15px; font-weight:600; margin:20px 0 8px; padding-bottom:6px; border-bottom:2px solid #d92732; color:var(--ink); display:flex; gap:8px; align-items:center; }
+  .wp-focus { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin:12px 0 4px; }
+  .wp-focus div { border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:13px; }
+  .wp-row { display:grid; grid-template-columns:30% 1fr; gap:10px; padding:10px; border-bottom:1px solid var(--line); background:var(--bg); }
+  .wp-row:first-of-type { border-top-left-radius:8px; border-top-right-radius:8px; }
+  .wp-name { font-weight:600; font-size:14px; }
+  .wp-meta { font-size:12px; color:var(--muted); }
+  .wp-tag { display:inline-block; font-size:11px; padding:1px 8px; border-radius:5px; margin-top:4px; }
+  .wp-tag.High { background:var(--flag-bg); color:var(--flag); }
+  .wp-tag.Mid { background:var(--warn-bg); color:var(--warn); }
+  .wp-tag.Low { background:var(--line); color:var(--muted); }
+  .wp-pri { display:flex; gap:4px; flex-wrap:wrap; margin-top:4px; }
+  .wp-pri .wp-tag { margin-top:0; border:1px solid transparent; cursor:pointer; font:inherit; font-size:11px; }
+  .wp-pri .wp-tag:not(.on) { background:transparent; color:var(--muted); border-color:var(--line); }
+  .wp label { font-size:12px; color:var(--muted); display:block; margin:4px 0 2px; }
+  .wp input, .wp textarea, .wp select { width:100%; box-sizing:border-box; font:inherit; font-size:14px; padding:7px 9px; border:1px solid var(--line); border-radius:6px; background:var(--surface); }
+  .wp textarea { min-height:60px; resize:vertical; }
+  .wp input.wp-missing { border-color:var(--flag); background:var(--flag-bg); }
+  .wp-grid3 { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+  .wp-link { font-size:13px; color:var(--ink); text-decoration:underline; cursor:pointer; background:none; border:0; padding:6px 0; }
+  .wp-empty { font-size:13px; color:var(--muted); padding:6px 0; }
+  .wp-bar { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-top:20px; padding-top:12px; border-top:1px solid var(--line); }
+  .wp-btn { font:inherit; font-size:14px; padding:8px 14px; border-radius:6px; border:1px solid var(--line); background:var(--surface); cursor:pointer; }
+  .wp-btn.primary { background:var(--bar); border-color:var(--bar); color:var(--bar-text); }
+  .wp-btn:disabled { opacity:.6; cursor:wait; }
+  .wp-msg { font-size:13px; margin-top:8px; }
+  .wp-msg.err { color:var(--flag); } .wp-msg.ok { color:var(--done); }
+  .wp-preview { margin-top:14px; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .wp-x { float:right; font-size:12px; color:var(--flag); background:none; border:0; cursor:pointer; }
+  @media (max-width:560px){ .wp-row{grid-template-columns:1fr;} .wp-grid3,.wp-focus{grid-template-columns:1fr;} }
+</style>
+
+<script>
+window.WeeklyPlan = (function () {
+  let el, token, storeId, state = null, dirty = false, timer = null, backToBoard = false;
+
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const call = (fn, ...args) => new Promise((ok, fail) =>
+    google.script.run.withSuccessHandler(ok).withFailureHandler(e => fail(e && e.message ? e : new Error(String(e))))[fn](...args));
+
+  const isAdmin = () => { try { return typeof isLead === 'function' && isLead(); } catch (e) { return false; } };
+
+  function mount(container, sessionToken, store) {
+    el = container; token = sessionToken;
+    if (isAdmin()) return board();
+    openStore(store);
+  }
+
+  /* Admin / DM board: every store's plan status, click to open one. */
+  function board() {
+    el.innerHTML = '<div class="wp"><div class="wp-empty">Loading all stores…</div></div>';
+    call('planStatusAll', token, null).then(res => {
+      const pill = s => '<span class="wp-pill ' + (s.status === 'Sent' ? 'Sent' : 'Draft') + '">' + esc(s.status) + '</span>';
+      const markets = res.stores.map(s => s.market).filter((m, i, a) => a.indexOf(m) === i);
+      el.innerHTML = '<div class="wp"><div class="wp-head"><div><div class="wp-title">Weekly plans · week of ' + esc(res.weekLabel) + '</div>' +
+        '<div class="wp-sub">' + res.stores.filter(s => s.status === 'Sent').length + ' of ' + res.stores.length + ' sent</div></div></div>' +
+        markets.map(m => '<h3>' + esc(m || 'Stores') + '</h3>' + res.stores.filter(s => s.market === m).map(s =>
+          '<div class="wp-row"><div><div class="wp-name">' + esc(s.name) + ' ' + esc(s.id) + '</div>' + pill(s) +
+          (s.sentAt ? '<div class="wp-meta">Sent ' + esc(new Date(s.sentAt).toLocaleString()) + '</div>' : '') + '</div>' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div class="wp-meta">' +
+          s.people + ' in plan · ' + s.high + ' high' + (s.status !== 'Sent' && s.people ? ' · ' + s.trainersLeft + ' trainers left' : '') +
+          (s.untracked ? ' · ' + s.untracked + ' not tracked' : '') + '</div>' +
+          '<button class="wp-btn" data-open="' + esc(s.id) + '">Open plan</button></div></div>').join('')).join('') + '</div>';
+      el.querySelectorAll('[data-open]').forEach(b => b.onclick = () => openStore(b.dataset.open, true));
+    }).catch(e => { el.innerHTML = '<div class="wp"><div class="wp-msg err">' + esc(e.message) + '</div></div>'; });
+  }
+
+  function openStore(store, fromBoard) {
+    storeId = store; backToBoard = !!fromBoard;
+    el.innerHTML = '<div class="wp"><div class="wp-empty">Loading this week’s plan…</div></div>';
+    call('planGet', token, storeId, null)
+      .then(res => { state = res; render(); })
+      .catch(e => { el.innerHTML = '<div class="wp"><div class="wp-msg err">' + esc(e.message) + '</div></div>'; });
+  }
+
+  function personRow(p, i) {
+    return '<div class="wp-row" data-i="' + i + '">' +
+      '<div>' + (p.manual ? rosterPick(p) : '<div class="wp-name">' + esc(p.name) + '</div>') +
+      '<div class="wp-meta">' + esc(p.detail || '') + '</div>' +
+      '<div class="wp-pri">' + ['High', 'Mid', 'Low'].map(pr => '<button type="button" class="wp-tag ' + pr + (p.priority === pr ? ' on' : '') + '" data-pri="' + pr + '" data-i="' + i + '" aria-pressed="' + (p.priority === pr) + '">' + pr + '</button>').join('') + '</div>' +
+    (p.reason ? '<div class="wp-meta">' + esc(p.reason) + '</div>' : '') +
+      (p.suggested ? '<div class="wp-meta">Suggested by tracker</div>' : '') +
+      '<button class="wp-x" data-remove="' + i + '">Not this week</button></div>' +
+      '<div><label>Plan notes</label><textarea data-f="notes" rows="2">' + esc(p.notes) + '</textarea>' +
+      '<label>Trainer</label><input data-f="trainer" placeholder="Who’s training them this week" value="' + esc(p.trainer) + '"></div></div>';
+  }
+
+  function rosterPick(p) {
+    const taken = state.data.people.filter(x => x !== p).map(x => x.name);
+    const opts = (state.data.roster || []).filter(r => r.name === p.name || taken.indexOf(r.name) < 0)
+      .map(r => '<option value="' + esc(r.name) + '"' + (r.name === p.name ? ' selected' : '') + '>' + esc(r.name) + (r.position ? ' · ' + esc(r.position) : '') + '</option>').join('');
+    return '<select data-f="name"><option value="">Choose from roster…</option>' + opts + '</select>';
+  }
+
+  function section(num, level) {
+    const list = state.data.people.map((p, i) => [p, i]).filter(x => x[0].level === level);
+    return '<h3>' + num + '. ' + level + ' <span class="wp-auto">Auto</span></h3>' +
+      (list.length ? list.map(x => personRow(x[0], x[1])).join('') : '<div class="wp-empty">No one in ' + level + ' right now.</div>') +
+      '<button class="wp-link" data-add="' + level + '">+ Add someone to ' + level + '</button>';
+  }
+
+  function area(key, num, title, ph) {
+    return '<h3>' + num + '. ' + title + ' <span class="wp-you">You</span></h3><textarea data-k="' + key + '" placeholder="' + esc(ph) + '">' + esc(state.data[key]) + '</textarea>';
+  }
+
+  function render(msg, cls) {
+    const d = state.data, st = d.staffing || {};
+    const names = pr => d.people.filter(p => p.priority === pr).map(p => p.name).join(', ') || '—';
+    const left = d.people.filter(p => !String(p.trainer || '').trim()).length;
+    el.innerHTML = '<div class="wp">' + (backToBoard ? '<button class="wp-link" data-act="board">← All stores</button>' : '') +
+      '<div class="wp-head"><div><div class="wp-title">Week of ' + esc(state.weekLabel) + '</div>' +
+      '<div class="wp-sub">' + esc(d.storeName) + ' ' + esc(d.storeId) + ' · due ' + esc(state.due) + (state.sentAt ? ' · sent ' + esc(new Date(state.sentAt).toLocaleString()) : '') + '</div></div>' +
+      '<span class="wp-pill ' + esc(state.status) + '">' + (state.status === 'Sent' ? 'Sent' : 'Draft' + (left ? ' · ' + left + ' trainer' + (left === 1 ? '' : 's') + ' left' : ' · ready to send')) + '</span></div>' +
+      '<div class="wp-legend"><span><span class="wp-auto">Auto</span> filled from the tracker, edit if needed</span><span><span class="wp-you">You</span> fill in</span></div>' +
+      '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0 2px"><button class="wp-btn primary" data-act="suggest">Auto-suggest training plan</button>' +
+      '<span class="wp-sub">Adds the people the tracker thinks need focus most. Remove anyone with “Not this week.”</span></div>' +
+      '<div class="wp-focus"><div><span class="wp-tag High">High focus</span><br>' + esc(names('High')) + '</div>' +
+      '<div><span class="wp-tag Mid">Mid focus</span><br>' + esc(names('Mid')) + '</div>' +
+      '<div><span class="wp-tag Low">Low focus</span><br>' + esc(names('Low')) + '</div></div>' +
+      section(1, 'Phase 1') + section(2, 'Phase 3') + section(3, 'MIT') +
+      ((d.mitCandidates || []).length ? '<div class="wp-empty">Finished Phase 3, could be enrolled in MIT: ' + esc(d.mitCandidates.join(', ')) + '</div>' : '') +
+      ((d.untracked || []).length ? '<div class="wp-empty">' + d.untracked.length + ' longer-tenured employees have no recent check-offs: ' + esc(d.untracked.join(', ')) + '. Update their checklists on the roster to bring them into future plans.</div>' : '') +
+      '<h3>4. Staffing <span class="wp-auto">Auto</span> <span class="wp-you">You</span></h3><div class="wp-grid3">' +
+      '<div><label>On roster</label><input value="' + esc(st.roster) + '" disabled></div>' +
+      '<div><label>How many we need</label><input data-s="need" value="' + esc(st.need) + '" placeholder="0"></div>' +
+      '<div><label>On the way out</label><input data-s="out" value="' + esc(st.out) + '" placeholder="0"></div></div>' +
+      '<label>Detailed staffing need</label><input data-s="detail" value="' + esc(st.detail) + '" placeholder="Day shift, weekends, closers…">' +
+      area('joining', 5, 'New hire onboarding', 'New hires starting this week, open roles, interviews scheduled, one per line') +
+      area('grassroots', 6, 'Grassroots, catering, fundraisers', 'Where you grassrooted and what’s planned, one per line') +
+      '<h3>7. POFs <span class="wp-auto">Auto</span> <span class="wp-you">You</span></h3><textarea data-k="pofs" placeholder="Name — position">' + esc(d.pofs) + '</textarea>' +
+      area('needs', 8, 'Facilities maintenance', 'Repairs, equipment, work orders') +
+      area('other', 9, 'Other', 'Anything else') +
+      '<div class="wp-bar"><button class="wp-link" data-act="refresh">Refresh training from tracker</button><div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button class="wp-btn" data-act="preview">Preview email</button><button class="wp-btn" data-act="save">Save draft</button>' +
+      '<button class="wp-btn primary" data-act="send">' + (state.status === 'Sent' ? 'Send again' : 'Send plan') + '</button></div></div>' +
+      '<div class="wp-msg ' + (cls || '') + '">' + esc(msg || '') + '</div><div class="wp-out"></div></div>';
+    wire();
+  }
+
+  function collect() {
+    el.querySelectorAll('.wp-row').forEach(row => {
+      const p = state.data.people[+row.dataset.i];
+      row.querySelectorAll('[data-f]').forEach(f => {
+        if (f.dataset.f === 'notes' && f.value !== p.notes) p.notesEdited = true;
+        p[f.dataset.f] = f.value;
+      });
+    });
+    el.querySelectorAll('[data-k]').forEach(f => { state.data[f.dataset.k] = f.value; });
+    el.querySelectorAll('[data-s]').forEach(f => { state.data.staffing[f.dataset.s] = f.value; });
+    return state.data;
+  }
+
+  function busy(on) { el.querySelectorAll('.wp-btn').forEach(b => b.disabled = on); }
+
+  function wire() {
+    el.querySelectorAll('input,textarea').forEach(f => f.addEventListener('input', () => {
+      dirty = true; f.classList.remove('wp-missing');
+      clearTimeout(timer); timer = setTimeout(autosave, 4000);
+    }));
+    el.querySelectorAll('[data-add]').forEach(b => b.onclick = () => {
+      collect();
+      state.data.people.push({ id: 'manual-' + Date.now(), name: '', level: b.dataset.add, detail: 'Added by manager', priority: '', reason: '', notes: '', trainer: '', manual: true });
+      render();
+    });
+    el.querySelectorAll('[data-remove]').forEach(b => b.onclick = () => { collect(); state.data.people.splice(+b.dataset.remove, 1); render(); });
+    el.querySelectorAll('[data-pri]').forEach(b => b.onclick = () => {
+      collect(); const p = state.data.people[+b.dataset.i]; p.priority = p.priority === b.dataset.pri ? '' : b.dataset.pri; p.priorityEdited = true;
+      dirty = true; render(); clearTimeout(timer); timer = setTimeout(autosave, 1500);
+    });
+    el.querySelectorAll('[data-act]').forEach(b => b.onclick = () => act(b.dataset.act));
+  }
+
+  function autosave() {
+    if (!dirty) return;
+    call('planSave', token, storeId, state.week, collect()).then(r => { dirty = false; state.status = r.status; }).catch(() => {});
+  }
+
+  function act(what) {
+    clearTimeout(timer);
+    if (what === 'board') { autosave(); return board(); }
+    if (what === 'suggest') {
+      const cur = collect();
+      busy(true);
+      return call('planSuggest', token, storeId, state.week, cur)
+        .then(res => {
+          const list = (res && res.people) || []; list.forEach(p => { p.priority = ''; });
+          if (res && res.pofs && !String(state.data.pofs || '').trim()) { state.data.pofs = res.pofs; dirty = true; }
+          if (!list.length) { if (dirty) autosave(); return render('No one else to suggest. Everyone who needs focus is already in the plan.', 'ok'); }
+          state.data.people = state.data.people.concat(list);
+          const rank = { High: 0, Mid: 1, Low: 2 };
+          state.data.people.sort((a, b) => (rank[a.priority] ?? 3) - (rank[b.priority] ?? 3));
+          dirty = true;
+          render('Added ' + list.length + ': ' + list.map(p => p.name).join(', ') + '. Fill in a trainer for each, or remove anyone who isn’t training this week.', 'ok');
+          autosave();
+        })
+        .catch(e => { busy(false); render(e.message, 'err'); });
+    }
+    const data = collect();
+    const out = el.querySelector('.wp-out');
+    if (what === 'preview') {
+      busy(true);
+      return call('planPreview', token, storeId, state.week, data)
+        .then(html => { busy(false); out.innerHTML = '<div class="wp-preview"><iframe style="width:100%;height:700px;border:0"></iframe></div>'; out.querySelector('iframe').srcdoc = html; out.scrollIntoView({ behavior: 'smooth' }); })
+        .catch(e => { busy(false); render(e.message, 'err'); });
+    }
+    if (what === 'refresh') {
+      busy(true);
+      return call('planRefresh', token, storeId, state.week, data)
+        .then(d => { state.data = d; dirty = true; render('Training sections updated. Your trainers and notes were kept.', 'ok'); autosave(); })
+        .catch(e => { busy(false); render(e.message, 'err'); });
+    }
+    if (what === 'save') {
+      busy(true);
+      return call('planSave', token, storeId, state.week, data)
+        .then(r => { dirty = false; state.status = r.status; render('Draft saved.', 'ok'); })
+        .catch(e => { busy(false); render(e.message, 'err'); });
+    }
+    if (what === 'send') {
+      const missing = [];
+      el.querySelectorAll('.wp-row').forEach(row => {
+        const t = row.querySelector('[data-f="trainer"]');
+        if (!t.value.trim()) { t.classList.add('wp-missing'); missing.push(state.data.people[+row.dataset.i].name || 'new row'); }
+      });
+      if (missing.length) {
+        const m = el.querySelector('.wp-msg'); m.className = 'wp-msg err';
+        m.textContent = 'Add a trainer for: ' + missing.join(', ');
+        el.querySelector('.wp-missing').focus();
+        return;
+      }
+      busy(true);
+      return call('planSend', token, storeId, state.week, data)
+        .then(r => { dirty = false; state.status = 'Sent'; state.sentAt = new Date().toISOString(); render('Plan sent to ' + r.to.join(', ') + '. You’re cc’d.', 'ok'); })
+        .catch(e => { busy(false); render(e.message, 'err'); });
+    }
+  }
+
+  return { mount: mount };
+})();
+</script>
